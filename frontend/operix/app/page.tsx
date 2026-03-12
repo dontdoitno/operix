@@ -1,65 +1,123 @@
-import Image from "next/image";
+import Link from "next/link";
 
-export default function Home() {
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { Table } from "@/components/ui/table";
+import { orders, purchaseRequests, suppliers } from "@/lib/mock-data";
+import { formatCurrency, formatDate } from "@/lib/format";
+
+const totalSpend = orders.reduce((sum, order) => sum + order.total, 0);
+const pendingApprovals = purchaseRequests.filter(
+  (request) => request.status === "Pending" || request.status === "In Review",
+).length;
+
+const dashboardStats = [
+  {
+    label: "Monthly Spend",
+    value: formatCurrency(totalSpend),
+    description: "Across confirmed and delivered orders",
+  },
+  {
+    label: "Open Requests",
+    value: String(purchaseRequests.length),
+    description: "Purchase requests currently tracked",
+  },
+  {
+    label: "Pending Approvals",
+    value: String(pendingApprovals),
+    description: "Requests waiting manager decision",
+  },
+  {
+    label: "Active Suppliers",
+    value: String(suppliers.length),
+    description: "Suppliers fulfilling current demand",
+  },
+];
+
+export default function DashboardPage() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div className="space-y-6 pb-4">
+      <section className="rounded-3xl bg-gradient-to-r from-[#111827] to-[#374151] p-8 text-white shadow-[0_20px_40px_rgba(31,41,55,0.25)]">
+        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+          <div className="max-w-xl">
+            <p className="text-sm font-medium text-white/80">Procurement overview</p>
+            <h1 className="mt-2 text-3xl font-semibold tracking-tight">
+              Welcome back to Operix
+            </h1>
+            <p className="mt-3 text-sm text-white/75">
+              Track requests, approvals, and supplier performance from one clean
+              dashboard.
+            </p>
+          </div>
+          <Link href="/requests">
+            <Button className="bg-[#FF5A3C] text-white hover:bg-[#e84d31]" size="md">
+              Create Request
+            </Button>
+          </Link>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+      </section>
+
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {dashboardStats.map((stat) => (
+          <Card key={stat.label} className="rounded-3xl p-6">
+            <p className="text-sm font-medium text-[#6B7280]">{stat.label}</p>
+            <p className="mt-3 text-3xl font-semibold tracking-tight text-[#1F2937]">
+              {stat.value}
+            </p>
+            <p className="mt-2 text-sm text-[#6B7280]">{stat.description}</p>
+          </Card>
+        ))}
+      </section>
+
+      <section className="grid gap-6 lg:grid-cols-[2fr_1fr]">
+        <Card className="rounded-3xl p-0">
+          <div className="flex items-center justify-between border-b border-[#E5E7EB] px-6 py-4">
+            <h2 className="text-lg font-semibold text-[#1F2937]">Recent requests</h2>
+            <Link className="text-sm font-medium text-[#FF5A3C]" href="/requests">
+              View all
+            </Link>
+          </div>
+          <Table
+            headers={["Request", "Department", "Submitted", "Amount", "Status"]}
+            rows={purchaseRequests.slice(0, 4).map((request) => ({
+              key: request.id,
+              cells: [
+                <Link
+                  key={`${request.id}-link`}
+                  className="font-medium text-[#1F2937] hover:text-[#FF5A3C]"
+                  href={`/requests/${request.id}`}
+                >
+                  {request.id}
+                </Link>,
+                request.department,
+                formatDate(request.submittedAt),
+                formatCurrency(request.amount),
+                <StatusBadge key={`${request.id}-status`} status={request.status} />, 
+              ],
+            }))}
+          />
+        </Card>
+
+        <Card className="rounded-3xl">
+          <h2 className="text-lg font-semibold text-[#1F2937]">Supplier pulse</h2>
+          <ul className="mt-4 space-y-4">
+            {suppliers.slice(0, 3).map((supplier) => (
+              <li
+                key={supplier.id}
+                className="rounded-2xl border border-[#E5E7EB] bg-[#F9FAFB] p-4"
+              >
+                <p className="font-medium text-[#1F2937]">{supplier.name}</p>
+                <p className="mt-1 text-sm text-[#6B7280]">{supplier.category}</p>
+                <div className="mt-3 flex items-center justify-between text-sm">
+                  <span className="text-[#6B7280]">Performance</span>
+                  <span className="font-medium text-[#1F2937]">{supplier.performance}%</span>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      </section>
     </div>
   );
 }
