@@ -2,7 +2,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, status
 
-from app.api.deps import CurrentUser, DbSession, require_roles
+from app.api.deps import CurrentUser, DbSession, get_current_user, require_roles
 from app.models.enums import UserRole
 from app.schemas.purchase_order import (
     PurchaseOrderCreate,
@@ -87,7 +87,10 @@ def create_purchase_order(
 
 
 @router.get("/orders/my", response_model=list[PurchaseOrderOut])
-def list_my_orders(db: DbSession, current_user: CurrentUser) -> list[PurchaseOrderOut]:
+def list_my_orders(
+    db: DbSession,
+    current_user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> list[PurchaseOrderOut]:
     """List orders visible to current user based on role ownership rules."""
     service = ProcurementService(db)
 
