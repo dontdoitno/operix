@@ -4,7 +4,14 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import { cn } from "@/lib/cn";
-import { UserRole, allRoles, parseUserRole, roleLabels, withRole } from "@/lib/roles";
+import {
+  UserRole,
+  allRoles,
+  parseUserRole,
+  roleLabels,
+  roleProfiles,
+  withRole,
+} from "@/lib/roles";
 
 interface NavigationItem {
   href: string;
@@ -29,6 +36,12 @@ const navigationByRole: Record<UserRole, NavigationItem[]> = {
   ],
 };
 
+const identityLabelByRole: Record<UserRole, string> = {
+  employee: "Сотрудник",
+  manager: "Менеджер",
+  supplier: "Компания",
+};
+
 export function TopNav() {
   const pathname = usePathname();
   const router = useRouter();
@@ -36,6 +49,7 @@ export function TopNav() {
 
   const role = parseUserRole(searchParams.get("role") ?? undefined);
   const navigationItems = navigationByRole[role];
+  const currentIdentity = roleProfiles[role].name;
 
   const handleRoleChange = (nextRole: UserRole) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -97,6 +111,12 @@ export function TopNav() {
               </select>
               <div className="rounded-xl border border-[#E5E7EB] bg-white px-3 py-2 text-xs font-semibold uppercase tracking-wide text-[#1F2937]">
                 {roleLabels[role]}
+              </div>
+              <div className="rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] px-3 py-2 text-xs text-[#4B5563]">
+                <span className="font-semibold uppercase tracking-wide text-[#6B7280]">
+                  {identityLabelByRole[role]}:
+                </span>{" "}
+                <span className="font-medium text-[#1F2937]">{currentIdentity}</span>
               </div>
             </div>
           </div>

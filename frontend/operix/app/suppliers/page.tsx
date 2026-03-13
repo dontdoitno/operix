@@ -72,7 +72,7 @@ export default async function SuppliersPage({ searchParams }: SuppliersPageProps
           headers={[
             "ID поставщика",
             "Название",
-            "Категория",
+            "Отрасль",
             "Email",
             "Телефон",
             "Эффективность",
@@ -81,15 +81,15 @@ export default async function SuppliersPage({ searchParams }: SuppliersPageProps
           rows={suppliers.map((supplier) => ({
             key: supplier.id,
             cells: [
-              supplier.id,
               <Link
-                key={`${supplier.id}-name`}
+                key={`${supplier.id}-id-link`}
                 className="font-medium text-[#1F2937] hover:text-[#FF5A3C]"
                 href={withRole(`/suppliers/${supplier.id}`, role)}
               >
-                {supplier.name}
+                {supplier.id}
               </Link>,
-              supplier.category,
+              supplier.name,
+              supplier.industry,
               supplier.email,
               supplier.phone,
               `${supplier.performance}%`,

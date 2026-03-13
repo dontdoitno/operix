@@ -55,7 +55,7 @@ export const rolePermissions: Record<UserRole, RolePermissions> = {
   },
   manager: {
     canAccessRequests: true,
-    canCreateRequest: true,
+    canCreateRequest: false,
     canApproveRequest: true,
     canManageSuppliers: true,
     canViewOrders: true,

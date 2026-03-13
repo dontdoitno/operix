@@ -1,11 +1,12 @@
 import Link from "next/link";
 
+import { SupplierPulseCard } from "@/components/dashboard/supplier-pulse-card";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Table } from "@/components/ui/table";
 import { formatCurrency, formatDate } from "@/lib/format";
-import { orders, purchaseRequests, suppliers } from "@/lib/mock-data";
+import { merchandise, orders, purchaseRequests, suppliers } from "@/lib/mock-data";
 import {
   SearchParams,
   getRoleFromSearchParams,
@@ -32,7 +33,9 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
   const availableOrders = permissions.canViewOrders
     ? role === "supplier"
-      ? orders.filter((order) => order.approvedByManager)
+      ? orders.filter(
+          (order) => order.approvedByManager && order.supplier === roleProfiles[role].name,
+        )
       : orders
     : [];
 
@@ -41,7 +44,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     (request) => request.status === "Ожидает" || request.status === "На согласовании",
   ).length;
 
-  const dashboardStats = [
+  const defaultStats = [
     {
       label: permissions.canViewOrders ? "Расходы за месяц" : "Ваши заявки",
       value: permissions.canViewOrders ? formatCurrency(totalSpend) : String(availableRequests.length),
@@ -76,6 +79,22 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     },
   ];
 
+  const dashboardStats =
+    role === "supplier"
+      ? [
+          {
+            label: "Доход за месяц",
+            value: formatCurrency(totalSpend),
+            description: "Сумма подтвержденных заказов вашей компании",
+          },
+          {
+            label: "Одобренные заказы",
+            value: String(availableOrders.length),
+            description: "Только заказы вашей компании, одобренные менеджером",
+          },
+        ]
+      : defaultStats;
+
   return (
     <div className="space-y-6 pb-4">
       <section className="rounded-3xl bg-gradient-to-r from-[#111827] to-[#374151] p-8 text-white shadow-[0_20px_40px_rgba(31,41,55,0.25)]">
@@ -104,7 +123,11 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         </div>
       </section>
 
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <section
+        className={
+          role === "supplier" ? "grid gap-4 sm:grid-cols-2" : "grid gap-4 sm:grid-cols-2 xl:grid-cols-4"
+        }
+      >
         {dashboardStats.map((stat) => (
           <Card key={stat.label} className="rounded-3xl p-6">
             <p className="text-sm font-medium text-[#6B7280]">{stat.label}</p>
@@ -173,21 +196,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           </Card>
         )}
 
-        <Card className="rounded-3xl">
-          <h2 className="text-lg font-semibold text-[#1F2937]">Пульс поставщиков</h2>
-          <ul className="mt-4 space-y-4">
-            {suppliers.slice(0, 3).map((supplier) => (
-              <li key={supplier.id} className="rounded-2xl border border-[#E5E7EB] bg-[#F9FAFB] p-4">
-                <p className="font-medium text-[#1F2937]">{supplier.name}</p>
-                <p className="mt-1 text-sm text-[#6B7280]">{supplier.category}</p>
-                <div className="mt-3 flex items-center justify-between text-sm">
-                  <span className="text-[#6B7280]">Эффективность</span>
-                  <span className="font-medium text-[#1F2937]">{supplier.performance}%</span>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </Card>
+        {role === "supplier" ? null : <SupplierPulseCard merchandise={merchandise} suppliers={suppliers} />}
       </section>
     </div>
   );

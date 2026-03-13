@@ -11,6 +11,12 @@ export interface PurchaseRequest {
   title: string;
   department: string;
   requester: string;
+  supplierId: string;
+  supplierName: string;
+  productId: string;
+  productName: string;
+  requestedQuantity: number;
+  unitPrice: number;
   amount: number;
   submittedAt: string;
   status: RequestStatus;
@@ -21,6 +27,7 @@ export interface Supplier {
   id: string;
   name: string;
   category: string;
+  industry: string;
   email: string;
   phone: string;
   performance: number;
@@ -58,6 +65,12 @@ export const purchaseRequests: PurchaseRequest[] = [
     title: "Ноутбуки для инженеров",
     department: "Инженерия",
     requester: "Maya Chen",
+    supplierId: "SUP-201",
+    supplierName: "Nova Industrial",
+    productId: "MER-1001",
+    productName: "Ноутбук Orion Pro 15",
+    requestedQuantity: 8,
+    unitPrice: 2300,
     amount: 18400,
     submittedAt: "2026-03-01",
     status: "На согласовании",
@@ -69,6 +82,12 @@ export const purchaseRequests: PurchaseRequest[] = [
     title: "Офисные кресла",
     department: "Операции",
     requester: "Liam Brooks",
+    supplierId: "SUP-163",
+    supplierName: "ErgoTech Furnishings",
+    productId: "MER-3001",
+    productName: "Эргономичное кресло ErgoFlex",
+    requestedQuantity: 20,
+    unitPrice: 310,
     amount: 6200,
     submittedAt: "2026-02-26",
     status: "Одобрено",
@@ -80,7 +99,13 @@ export const purchaseRequests: PurchaseRequest[] = [
     title: "Материалы для маркетинговой кампании",
     department: "Маркетинг",
     requester: "Ava Patel",
-    amount: 9100,
+    supplierId: "SUP-185",
+    supplierName: "Paperlane Studio",
+    productId: "MER-2001",
+    productName: "Баннерный комплект Promo A1",
+    requestedQuantity: 75,
+    unitPrice: 120,
+    amount: 9000,
     submittedAt: "2026-02-23",
     status: "Ожидает",
     description:
@@ -91,6 +116,12 @@ export const purchaseRequests: PurchaseRequest[] = [
     title: "Сканеры для склада",
     department: "Логистика",
     requester: "Noah Evans",
+    supplierId: "SUP-147",
+    supplierName: "Lumen Logistics",
+    productId: "MER-4001",
+    productName: "Ручной сканер Lumen ScanPro",
+    requestedQuantity: 25,
+    unitPrice: 500,
     amount: 12500,
     submittedAt: "2026-02-20",
     status: "Отклонено",
@@ -104,6 +135,7 @@ export const suppliers: Supplier[] = [
     id: "SUP-201",
     name: "Nova Industrial",
     category: "Оборудование",
+    industry: "Оборудование",
     email: "ops@novaindustrial.com",
     phone: "+7 (495) 101-11-01",
     performance: 96,
@@ -113,6 +145,7 @@ export const suppliers: Supplier[] = [
     id: "SUP-185",
     name: "Paperlane Studio",
     category: "Маркетинг",
+    industry: "Маркетинг",
     email: "hello@paperlane.studio",
     phone: "+7 (495) 202-22-02",
     performance: 91,
@@ -122,6 +155,7 @@ export const suppliers: Supplier[] = [
     id: "SUP-163",
     name: "ErgoTech Furnishings",
     category: "Офис",
+    industry: "Офисная мебель",
     email: "support@ergotech.co",
     phone: "+7 (495) 303-33-03",
     performance: 88,
@@ -131,6 +165,7 @@ export const suppliers: Supplier[] = [
     id: "SUP-147",
     name: "Lumen Logistics",
     category: "Дистрибуция",
+    industry: "Складская логистика",
     email: "team@lumenlogistics.com",
     phone: "+7 (495) 404-44-04",
     performance: 94,
@@ -248,5 +283,31 @@ export const merchandise: MerchandiseItem[] = [
       "Набор печатных баннеров формата A1 для маркетинговых кампаний и партнерских мероприятий.",
     category: "Маркетинговые материалы",
     updatedAt: "2026-03-04",
+  },
+  {
+    id: "MER-3001",
+    supplierId: "SUP-163",
+    name: "Эргономичное кресло ErgoFlex",
+    sku: "ERGO-CHAIR-FLEX",
+    availableQuantity: 85,
+    reservedQuantity: 11,
+    price: 310,
+    description:
+      "Кресло с поддержкой поясницы и регулировкой по высоте для интенсивного офисного использования.",
+    category: "Офисная мебель",
+    updatedAt: "2026-03-08",
+  },
+  {
+    id: "MER-4001",
+    supplierId: "SUP-147",
+    name: "Ручной сканер Lumen ScanPro",
+    sku: "LUMEN-SCAN-PRO",
+    availableQuantity: 50,
+    reservedQuantity: 7,
+    price: 500,
+    description:
+      "Складской сканер штрихкодов с повышенной защитой корпуса и длительной автономной работой.",
+    category: "Складское оборудование",
+    updatedAt: "2026-03-06",
   },
 ];
