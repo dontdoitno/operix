@@ -5,14 +5,14 @@ interface StatusBadgeProps {
 }
 
 const statusVariantMap: Record<string, "default" | "success" | "warning" | "danger" | "info"> = {
-  Pending: "warning",
-  "In Review": "info",
-  Approved: "success",
-  Rejected: "danger",
-  Draft: "default",
-  Confirmed: "info",
-  Delivered: "success",
-  Delayed: "danger",
+  "Ожидает": "warning",
+  "На согласовании": "info",
+  "Одобрено": "success",
+  "Отклонено": "danger",
+  "Черновик": "default",
+  "Подтвержден": "info",
+  "Доставлен": "success",
+  "Задержан": "danger",
 };
 
 export function StatusBadge({ status }: StatusBadgeProps) {

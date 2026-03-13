@@ -23,7 +23,7 @@ export function Modal({ isOpen, onClose, title, children, footer }: ModalProps) 
         <div className="mb-4 flex items-center justify-between gap-3">
           <h2 className="text-lg font-semibold text-[#1F2937]">{title}</h2>
           <button
-            aria-label="Close modal"
+            aria-label="Закрыть модальное окно"
             className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#E5E7EB] text-[#6B7280] transition-colors hover:bg-[#F9FAFB]"
             onClick={onClose}
             type="button"

@@ -16,9 +16,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Operix | Procurement Management",
+  title: "Operix | Управление закупками",
   description:
-    "Operix helps teams create purchase requests, streamline approvals, and manage supplier orders.",
+    "Operix помогает командам создавать заявки на закупку, ускорять согласования и управлять заказами поставщикам.",
 };
 
 export default function RootLayout({
@@ -27,7 +27,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="ru">
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <AppShell>{children}</AppShell>
       </body>

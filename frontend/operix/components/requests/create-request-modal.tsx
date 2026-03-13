@@ -16,20 +16,20 @@ export function CreateRequestModal() {
   return (
     <>
       <Button onClick={() => setIsOpen(true)} size="md" variant="primary">
-        New Request
+        Новая заявка
       </Button>
 
       <Modal
         isOpen={isOpen}
         onClose={() => setIsOpen(false)}
-        title="Create Purchase Request"
+        title="Создание заявки на закупку"
         footer={
           <>
             <Button onClick={() => setIsOpen(false)} variant="secondary">
-              Cancel
+              Отмена
             </Button>
             <Button form="create-request-form" type="submit">
-              Submit Request
+              Отправить заявку
             </Button>
           </>
         }
@@ -37,12 +37,12 @@ export function CreateRequestModal() {
         <form className="space-y-4" id="create-request-form" onSubmit={onSubmit}>
           <div className="space-y-1">
             <label className="text-sm font-medium text-[#1F2937]" htmlFor="title">
-              Request Title
+              Название заявки
             </label>
             <input
               className="h-10 w-full rounded-xl border border-[#E5E7EB] px-3 text-sm text-[#1F2937] outline-none ring-[#FF5A3C]/40 focus:ring-4"
               id="title"
-              placeholder="e.g. Team laptops"
+              placeholder="Например: Ноутбуки для команды"
               required
               type="text"
             />
@@ -51,19 +51,19 @@ export function CreateRequestModal() {
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1">
               <label className="text-sm font-medium text-[#1F2937]" htmlFor="department">
-                Department
+                Отдел
               </label>
               <input
                 className="h-10 w-full rounded-xl border border-[#E5E7EB] px-3 text-sm text-[#1F2937] outline-none ring-[#FF5A3C]/40 focus:ring-4"
                 id="department"
-                placeholder="Engineering"
+                placeholder="Инженерия"
                 required
                 type="text"
               />
             </div>
             <div className="space-y-1">
               <label className="text-sm font-medium text-[#1F2937]" htmlFor="amount">
-                Amount (USD)
+                Сумма (USD)
               </label>
               <input
                 className="h-10 w-full rounded-xl border border-[#E5E7EB] px-3 text-sm text-[#1F2937] outline-none ring-[#FF5A3C]/40 focus:ring-4"
@@ -78,12 +78,12 @@ export function CreateRequestModal() {
 
           <div className="space-y-1">
             <label className="text-sm font-medium text-[#1F2937]" htmlFor="description">
-              Description
+              Описание
             </label>
             <textarea
               className="min-h-24 w-full rounded-xl border border-[#E5E7EB] px-3 py-2 text-sm text-[#1F2937] outline-none ring-[#FF5A3C]/40 focus:ring-4"
               id="description"
-              placeholder="Provide request details for approvers"
+              placeholder="Опишите детали заявки для согласующих"
               required
             />
           </div>
