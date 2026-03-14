@@ -2,7 +2,10 @@
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useState } from "react";
 
+import { Button } from "@/components/ui/button";
+import { clearAuthSession, getAuthSession } from "@/lib/auth-storage";
 import { cn } from "@/lib/cn";
 import {
   UserRole,
@@ -16,6 +19,11 @@ import {
 interface NavigationItem {
   href: string;
   label: string;
+}
+
+interface SessionIdentityState {
+  role: UserRole | null;
+  name: string | null;
 }
 
 const navigationByRole: Record<UserRole, NavigationItem[]> = {
@@ -42,14 +50,42 @@ const identityLabelByRole: Record<UserRole, string> = {
   supplier: "Компания",
 };
 
+const authRoutes = new Set(["/login", "/register", "/logout"]);
+
+function getInitialSessionIdentity(): SessionIdentityState {
+  const session = getAuthSession();
+
+  if (!session) {
+    return {
+      role: null,
+      name: null,
+    };
+  }
+
+  return {
+    role: session.user.role,
+    name: session.user.full_name,
+  };
+}
+
 export function TopNav() {
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const role = parseUserRole(searchParams.get("role") ?? undefined);
+  const [sessionIdentity, setSessionIdentity] = useState<SessionIdentityState>(
+    getInitialSessionIdentity,
+  );
+
+  const role =
+    sessionIdentity.role ?? parseUserRole(searchParams.get("role") ?? undefined);
+
+  if (authRoutes.has(pathname)) {
+    return null;
+  }
+
   const navigationItems = navigationByRole[role];
-  const currentIdentity = roleProfiles[role].name;
+  const currentIdentity = sessionIdentity.name ?? roleProfiles[role].name;
 
   const handleRoleChange = (nextRole: UserRole) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -57,6 +93,14 @@ export function TopNav() {
     const query = params.toString();
 
     router.push(query ? `${pathname}?${query}` : pathname);
+  };
+
+  const handleClearSession = () => {
+    clearAuthSession();
+    setSessionIdentity({
+      role: null,
+      name: null,
+    });
   };
 
   return (
@@ -98,7 +142,8 @@ export function TopNav() {
                 Роль
               </label>
               <select
-                className="h-10 rounded-xl border border-[#E5E7EB] bg-white px-3 text-sm text-[#1F2937] outline-none ring-[#FF5A3C]/40 focus:ring-4"
+                className="h-10 rounded-xl border border-[#E5E7EB] bg-white px-3 text-sm text-[#1F2937] outline-none ring-[#FF5A3C]/40 focus:ring-4 disabled:cursor-not-allowed disabled:bg-[#F3F4F6]"
+                disabled={sessionIdentity.role !== null}
                 id="role-select"
                 onChange={(event) => handleRoleChange(event.target.value as UserRole)}
                 value={role}
@@ -118,6 +163,31 @@ export function TopNav() {
                 </span>{" "}
                 <span className="font-medium text-[#1F2937]">{currentIdentity}</span>
               </div>
+              {sessionIdentity.role !== null ? (
+                <>
+                  <Link href="/logout">
+                    <Button size="sm" variant="secondary">
+                      Выйти
+                    </Button>
+                  </Link>
+                  <Button onClick={handleClearSession} size="sm" variant="ghost">
+                    Очистить локально
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Link href="/login">
+                    <Button size="sm" variant="secondary">
+                      Войти
+                    </Button>
+                  </Link>
+                  <Link href="/register">
+                    <Button size="sm" variant="primary">
+                      Регистрация
+                    </Button>
+                  </Link>
+                </>
+              )}
             </div>
           </div>
 
