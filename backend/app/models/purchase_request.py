@@ -12,6 +12,11 @@ from app.db.base_class import Base
 from app.models.enums import PurchaseRequestStatus
 
 
+def _enum_values(enum_cls: type[PurchaseRequestStatus]) -> list[str]:
+    """Return enum values for SQLAlchemy DB persistence mapping."""
+    return [member.value for member in enum_cls]
+
+
 class PurchaseRequest(Base):
     """Purchase request created by an employee and reviewed by a manager."""
 
@@ -23,7 +28,11 @@ class PurchaseRequest(Base):
     amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     currency: Mapped[str] = mapped_column(String(3), nullable=False, default="USD")
     status: Mapped[PurchaseRequestStatus] = mapped_column(
-        Enum(PurchaseRequestStatus, name="purchase_request_status"),
+        Enum(
+            PurchaseRequestStatus,
+            name="purchase_request_status",
+            values_callable=_enum_values,
+        ),
         nullable=False,
         default=PurchaseRequestStatus.PENDING,
         index=True,

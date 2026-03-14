@@ -11,6 +11,11 @@ from app.db.base_class import Base
 from app.models.enums import PurchaseOrderStatus
 
 
+def _enum_values(enum_cls: type[PurchaseOrderStatus]) -> list[str]:
+    """Return enum values for SQLAlchemy DB persistence mapping."""
+    return [member.value for member in enum_cls]
+
+
 class PurchaseOrder(Base):
     """Purchase order created from an approved purchase request."""
 
@@ -38,7 +43,11 @@ class PurchaseOrder(Base):
     )
 
     status: Mapped[PurchaseOrderStatus] = mapped_column(
-        Enum(PurchaseOrderStatus, name="purchase_order_status"),
+        Enum(
+            PurchaseOrderStatus,
+            name="purchase_order_status",
+            values_callable=_enum_values,
+        ),
         nullable=False,
         default=PurchaseOrderStatus.CREATED,
         index=True,

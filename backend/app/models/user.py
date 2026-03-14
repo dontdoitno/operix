@@ -10,6 +10,11 @@ from app.db.base_class import Base
 from app.models.enums import UserRole
 
 
+def _enum_values(enum_cls: type[UserRole]) -> list[str]:
+    """Return enum values for SQLAlchemy DB persistence mapping."""
+    return [member.value for member in enum_cls]
+
+
 class User(Base):
     """System user model used for employees, managers, and suppliers."""
 
@@ -18,7 +23,11 @@ class User(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
     email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
     full_name: Mapped[str] = mapped_column(String(255), nullable=False)
-    role: Mapped[UserRole] = mapped_column(Enum(UserRole, name="user_role"), nullable=False, index=True)
+    role: Mapped[UserRole] = mapped_column(
+        Enum(UserRole, name="user_role", values_callable=_enum_values),
+        nullable=False,
+        index=True,
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     purchase_requests = relationship(
