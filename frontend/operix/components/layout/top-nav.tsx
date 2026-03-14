@@ -2,10 +2,10 @@
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useEffect } from "react";
 
 import { Button } from "@/components/ui/button";
-import { clearAuthSession, getAuthSession } from "@/lib/auth-storage";
+import { getAuthSession } from "@/lib/auth-storage";
 import { cn } from "@/lib/cn";
 import {
   UserRole,
@@ -19,11 +19,6 @@ import {
 interface NavigationItem {
   href: string;
   label: string;
-}
-
-interface SessionIdentityState {
-  role: UserRole | null;
-  name: string | null;
 }
 
 const navigationByRole: Record<UserRole, NavigationItem[]> = {
@@ -52,40 +47,39 @@ const identityLabelByRole: Record<UserRole, string> = {
 
 const authRoutes = new Set(["/login", "/register", "/logout"]);
 
-function getInitialSessionIdentity(): SessionIdentityState {
-  const session = getAuthSession();
-
-  if (!session) {
-    return {
-      role: null,
-      name: null,
-    };
-  }
-
-  return {
-    role: session.user.role,
-    name: session.user.full_name,
-  };
-}
-
 export function TopNav() {
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const [sessionIdentity, setSessionIdentity] = useState<SessionIdentityState>(
-    getInitialSessionIdentity,
-  );
+  const session = getAuthSession();
+  const sessionRole = session?.user.role ?? null;
+  const role = sessionRole ?? parseUserRole(searchParams.get("role") ?? undefined);
 
-  const role =
-    sessionIdentity.role ?? parseUserRole(searchParams.get("role") ?? undefined);
+  useEffect(() => {
+    if (!sessionRole || authRoutes.has(pathname)) {
+      return;
+    }
+
+    const activeRoleParam = searchParams.get("role");
+    if (activeRoleParam === sessionRole) {
+      return;
+    }
+
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("role", sessionRole);
+
+    const query = params.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname);
+  }, [pathname, router, searchParams, sessionRole]);
 
   if (authRoutes.has(pathname)) {
     return null;
   }
 
   const navigationItems = navigationByRole[role];
-  const currentIdentity = sessionIdentity.name ?? roleProfiles[role].name;
+  const currentIdentity = session?.user.full_name ?? roleProfiles[role].name;
+  const isAuthenticated = sessionRole !== null;
 
   const handleRoleChange = (nextRole: UserRole) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -93,14 +87,6 @@ export function TopNav() {
     const query = params.toString();
 
     router.push(query ? `${pathname}?${query}` : pathname);
-  };
-
-  const handleClearSession = () => {
-    clearAuthSession();
-    setSessionIdentity({
-      role: null,
-      name: null,
-    });
   };
 
   return (
@@ -138,44 +124,49 @@ export function TopNav() {
             </div>
 
             <div className="flex flex-wrap items-center gap-3">
-              <label className="text-sm font-medium text-[#6B7280]" htmlFor="role-select">
-                Роль
-              </label>
-              <select
-                className="h-10 rounded-xl border border-[#E5E7EB] bg-white px-3 text-sm text-[#1F2937] outline-none ring-[#FF5A3C]/40 focus:ring-4 disabled:cursor-not-allowed disabled:bg-[#F3F4F6]"
-                disabled={sessionIdentity.role !== null}
-                id="role-select"
-                onChange={(event) => handleRoleChange(event.target.value as UserRole)}
-                value={role}
-              >
-                {allRoles.map((availableRole) => (
-                  <option key={availableRole} value={availableRole}>
-                    {roleLabels[availableRole]}
-                  </option>
-                ))}
-              </select>
-              <div className="rounded-xl border border-[#E5E7EB] bg-white px-3 py-2 text-xs font-semibold uppercase tracking-wide text-[#1F2937]">
-                {roleLabels[role]}
-              </div>
-              <div className="rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] px-3 py-2 text-xs text-[#4B5563]">
-                <span className="font-semibold uppercase tracking-wide text-[#6B7280]">
-                  {identityLabelByRole[role]}:
-                </span>{" "}
-                <span className="font-medium text-[#1F2937]">{currentIdentity}</span>
-              </div>
-              {sessionIdentity.role !== null ? (
+              {isAuthenticated ? (
                 <>
+                  <div className="rounded-xl border border-[#E5E7EB] bg-white px-3 py-2 text-xs font-semibold uppercase tracking-wide text-[#1F2937]">
+                    {roleLabels[role]}
+                  </div>
+                  <div className="rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] px-3 py-2 text-xs text-[#4B5563]">
+                    <span className="font-semibold uppercase tracking-wide text-[#6B7280]">
+                      {identityLabelByRole[role]}:
+                    </span>{" "}
+                    <span className="font-medium text-[#1F2937]">{currentIdentity}</span>
+                  </div>
                   <Link href="/logout">
                     <Button size="sm" variant="secondary">
                       Выйти
                     </Button>
                   </Link>
-                  <Button onClick={handleClearSession} size="sm" variant="ghost">
-                    Очистить локально
-                  </Button>
                 </>
               ) : (
                 <>
+                  <label className="text-sm font-medium text-[#6B7280]" htmlFor="role-select">
+                    Роль
+                  </label>
+                  <select
+                    className="h-10 rounded-xl border border-[#E5E7EB] bg-white px-3 text-sm text-[#1F2937] outline-none ring-[#FF5A3C]/40 focus:ring-4 disabled:cursor-not-allowed disabled:bg-[#F3F4F6]"
+                    id="role-select"
+                    onChange={(event) => handleRoleChange(event.target.value as UserRole)}
+                    value={role}
+                  >
+                    {allRoles.map((availableRole) => (
+                      <option key={availableRole} value={availableRole}>
+                        {roleLabels[availableRole]}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="rounded-xl border border-[#E5E7EB] bg-white px-3 py-2 text-xs font-semibold uppercase tracking-wide text-[#1F2937]">
+                    {roleLabels[role]}
+                  </div>
+                  <div className="rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] px-3 py-2 text-xs text-[#4B5563]">
+                    <span className="font-semibold uppercase tracking-wide text-[#6B7280]">
+                      {identityLabelByRole[role]}:
+                    </span>{" "}
+                    <span className="font-medium text-[#1F2937]">{currentIdentity}</span>
+                  </div>
                   <Link href="/login">
                     <Button size="sm" variant="secondary">
                       Войти

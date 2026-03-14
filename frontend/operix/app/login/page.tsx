@@ -7,7 +7,7 @@ import { FormEvent, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { loginRequest } from "@/lib/api";
 import { saveAuthSession } from "@/lib/auth-storage";
-import { withRole } from "@/lib/roles";
+import { getDefaultRouteForRole, withRole } from "@/lib/roles";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -30,7 +30,8 @@ export default function LoginPage() {
         user: response.user,
       });
 
-      router.push(withRole("/", response.user.role));
+      const role = response.user.role;
+      router.push(withRole(getDefaultRouteForRole(role), role));
     } catch (error) {
       const message = error instanceof Error ? error.message : "Не удалось выполнить вход.";
       setErrorMessage(message);
