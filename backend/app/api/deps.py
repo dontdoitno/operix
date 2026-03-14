@@ -4,9 +4,11 @@ from typing import Annotated, Optional
 from fastapi import Depends, Header, HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.core.security import hash_session_token
 from app.db.session import get_db
 from app.models.enums import UserRole
 from app.models.user import User
+from app.repositories.auth_session_repository import AuthSessionRepository
 from app.repositories.user_repository import UserRepository
 
 
@@ -14,15 +16,50 @@ DbSession = Annotated[Session, Depends(get_db)]
 CurrentUser = User
 
 
+def extract_bearer_token(authorization: Optional[str]) -> Optional[str]:
+    """Extract bearer token from Authorization header value."""
+    if authorization is None:
+        return None
+
+    prefix = "Bearer "
+    if not authorization.startswith(prefix):
+        return None
+
+    token = authorization[len(prefix) :].strip()
+    if not token:
+        return None
+
+    return token
+
+
 def get_current_user(
     db: DbSession,
     x_user_id: Optional[str] = Header(default=None, alias="X-User-Id"),
+    authorization: Optional[str] = Header(default=None, alias="Authorization"),
 ) -> User:
-    """Resolve the authenticated user from request headers."""
+    """Resolve authenticated user by bearer token or legacy X-User-Id header."""
+    bearer_token = extract_bearer_token(authorization)
+    if authorization is not None and bearer_token is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authorization header must use Bearer token format.",
+        )
+
+    if bearer_token is not None:
+        token_hash = hash_session_token(bearer_token)
+        auth_session = AuthSessionRepository(db).get_active_by_token_hash(token_hash)
+        if auth_session is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Authentication token is invalid or expired.",
+            )
+
+        return auth_session.user
+
     if not x_user_id:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="X-User-Id header is required.",
+            detail="Authorization Bearer token or X-User-Id header is required.",
         )
 
     user = UserRepository(db).get_by_id(x_user_id)

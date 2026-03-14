@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Optional
 from uuid import uuid4
 
 from sqlalchemy import DateTime, Enum, String, func
@@ -23,6 +24,7 @@ class User(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
     email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
     full_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    password_hash: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     role: Mapped[UserRole] = mapped_column(
         Enum(UserRole, name="user_role", values_callable=_enum_values),
         nullable=False,
@@ -50,4 +52,10 @@ class User(Base):
         "PurchaseOrder",
         back_populates="manager",
         foreign_keys="PurchaseOrder.manager_id",
+    )
+    auth_sessions = relationship(
+        "AuthSession",
+        back_populates="user",
+        foreign_keys="AuthSession.user_id",
+        cascade="all,delete-orphan",
     )

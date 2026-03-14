@@ -23,5 +23,9 @@ class PermissionDeniedError(AppError):
     status_code = 403
 
 
+class UnauthorizedError(AppError):
+    status_code = 401
+
+
 class ValidationError(AppError):
     status_code = 422
