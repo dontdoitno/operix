@@ -9,6 +9,7 @@ from typing import Optional, Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
 revision = "20260612_0001"
@@ -17,29 +18,60 @@ branch_labels = None
 depends_on = None
 
 
-user_role_enum = sa.Enum("employee", "manager", "supplier", name="user_role")
-purchase_request_status_enum = sa.Enum(
+# NOTE:
+# Use PostgreSQL-specific ENUM with create_type=False in columns to prevent
+# implicit CREATE TYPE during table creation. We create/drop enum types
+# explicitly with checkfirst=True in upgrade/downgrade for idempotency.
+user_role_enum = postgresql.ENUM(
+    "employee",
+    "manager",
+    "supplier",
+    name="user_role",
+    create_type=False,
+)
+purchase_request_status_enum = postgresql.ENUM(
     "pending",
     "approved",
     "rejected",
     "order_created",
     name="purchase_request_status",
+    create_type=False,
 )
-purchase_order_status_enum = sa.Enum(
+purchase_order_status_enum = postgresql.ENUM(
     "created",
     "confirmed",
     "in_fulfillment",
     "delivered",
     "received",
     name="purchase_order_status",
+    create_type=False,
 )
 
 
 def upgrade() -> None:
     bind = op.get_bind()
-    user_role_enum.create(bind, checkfirst=True)
-    purchase_request_status_enum.create(bind, checkfirst=True)
-    purchase_order_status_enum.create(bind, checkfirst=True)
+
+    postgresql.ENUM(
+        "employee",
+        "manager",
+        "supplier",
+        name="user_role",
+    ).create(bind, checkfirst=True)
+    postgresql.ENUM(
+        "pending",
+        "approved",
+        "rejected",
+        "order_created",
+        name="purchase_request_status",
+    ).create(bind, checkfirst=True)
+    postgresql.ENUM(
+        "created",
+        "confirmed",
+        "in_fulfillment",
+        "delivered",
+        "received",
+        name="purchase_order_status",
+    ).create(bind, checkfirst=True)
 
     op.create_table(
         "users",
@@ -130,6 +162,24 @@ def downgrade() -> None:
     op.drop_table("users")
 
     bind = op.get_bind()
-    purchase_order_status_enum.drop(bind, checkfirst=True)
-    purchase_request_status_enum.drop(bind, checkfirst=True)
-    user_role_enum.drop(bind, checkfirst=True)
+    postgresql.ENUM(
+        "created",
+        "confirmed",
+        "in_fulfillment",
+        "delivered",
+        "received",
+        name="purchase_order_status",
+    ).drop(bind, checkfirst=True)
+    postgresql.ENUM(
+        "pending",
+        "approved",
+        "rejected",
+        "order_created",
+        name="purchase_request_status",
+    ).drop(bind, checkfirst=True)
+    postgresql.ENUM(
+        "employee",
+        "manager",
+        "supplier",
+        name="user_role",
+    ).drop(bind, checkfirst=True)
