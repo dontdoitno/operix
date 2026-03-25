@@ -1,7 +1,6 @@
-import { notFound, redirect } from "next/navigation";
+import { redirect } from "next/navigation";
 
 import { OrderDetailsViewClient } from "@/components/orders/order-details-view-client";
-import { orders, purchaseRequests } from "@/lib/mock-data";
 import {
   SearchParams,
   getDefaultRouteForRole,
@@ -31,32 +30,10 @@ export default async function OrderDetailsPage({
     redirect(withRole(getDefaultRouteForRole(role), role));
   }
 
-  const order = orders.find((item) => item.id === resolvedParams.id);
-
-  if (!order) {
-    notFound();
-  }
-
-  if (role === "supplier" && !order.approvedByManager) {
-    redirect(withRole("/orders", role));
-  }
-
-  const relatedRequest = purchaseRequests.find((request) => request.id === order.requestId);
-
   return (
     <OrderDetailsViewClient
       canProcessSupplierOrders={permissions.canProcessSupplierOrders}
-      order={order}
-      relatedRequestLink={
-        relatedRequest && role === "manager"
-          ? withRole(`/requests/${relatedRequest.id}`, role)
-          : undefined
-      }
-      relatedRequestText={
-        relatedRequest
-          ? `${relatedRequest.id} — ${relatedRequest.title}`
-          : "Запрос не найден"
-      }
+      orderId={resolvedParams.id}
       role={role}
     />
   );

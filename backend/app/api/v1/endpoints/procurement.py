@@ -13,6 +13,7 @@ from app.schemas.purchase_request import (
     PurchaseRequestCreate,
     PurchaseRequestDecision,
     PurchaseRequestOut,
+    PurchaseRequestUpdate,
 )
 from app.services.procurement_service import ProcurementService
 
@@ -29,6 +30,19 @@ def create_purchase_request(
     service = ProcurementService(db)
     purchase_request = service.create_purchase_request(employee=employee, payload=payload)
     return PurchaseRequestOut.model_validate(purchase_request)
+
+
+@router.get("/requests", response_model=list[PurchaseRequestOut])
+def list_purchase_requests(
+    db: DbSession,
+    current_user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> list[PurchaseRequestOut]:
+    """List purchase requests visible to current user based on role access rules."""
+    service = ProcurementService(db)
+    return [
+        PurchaseRequestOut.model_validate(request)
+        for request in service.list_requests_for_user(current_user=current_user)
+    ]
 
 
 @router.get("/requests/my", response_model=list[PurchaseRequestOut])
@@ -55,6 +69,35 @@ def list_pending_requests(
         PurchaseRequestOut.model_validate(request)
         for request in service.list_pending_requests(manager=manager)
     ]
+
+
+@router.get("/requests/{request_id}", response_model=PurchaseRequestOut)
+def get_purchase_request(
+    request_id: str,
+    db: DbSession,
+    current_user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> PurchaseRequestOut:
+    """Get a single purchase request if current user has access."""
+    service = ProcurementService(db)
+    purchase_request = service.get_request_for_user(current_user=current_user, request_id=request_id)
+    return PurchaseRequestOut.model_validate(purchase_request)
+
+
+@router.put("/requests/{request_id}", response_model=PurchaseRequestOut)
+def update_purchase_request(
+    request_id: str,
+    payload: PurchaseRequestUpdate,
+    db: DbSession,
+    employee: Annotated[CurrentUser, Depends(require_roles(UserRole.EMPLOYEE))],
+) -> PurchaseRequestOut:
+    """Update employee purchase request before final approval."""
+    service = ProcurementService(db)
+    purchase_request = service.update_purchase_request(
+        employee=employee,
+        request_id=request_id,
+        payload=payload,
+    )
+    return PurchaseRequestOut.model_validate(purchase_request)
 
 
 @router.post("/requests/{request_id}/review", response_model=PurchaseRequestOut)
@@ -102,6 +145,18 @@ def list_my_orders(
         orders = service.list_employee_orders(employee=current_user)
 
     return [PurchaseOrderOut.model_validate(order) for order in orders]
+
+
+@router.get("/orders/{order_id}", response_model=PurchaseOrderOut)
+def get_order(
+    order_id: str,
+    db: DbSession,
+    current_user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> PurchaseOrderOut:
+    """Get a single purchase order if current user has access."""
+    service = ProcurementService(db)
+    purchase_order = service.get_order_for_user(current_user=current_user, order_id=order_id)
+    return PurchaseOrderOut.model_validate(purchase_order)
 
 
 @router.post("/orders/{order_id}/supplier-status", response_model=PurchaseOrderOut)

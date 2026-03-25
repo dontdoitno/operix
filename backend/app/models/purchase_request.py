@@ -64,3 +64,17 @@ class PurchaseRequest(Base):
     requester = relationship("User", foreign_keys=[requester_id], back_populates="purchase_requests")
     reviewer = relationship("User", foreign_keys=[reviewer_id], back_populates="reviewed_requests")
     purchase_order = relationship("PurchaseOrder", back_populates="purchase_request", uselist=False)
+
+    @property
+    def requester_name(self) -> Optional[str]:
+        """Expose requester full name in serialized API responses."""
+        if self.requester is None:
+            return None
+        return self.requester.full_name
+
+    @property
+    def reviewer_name(self) -> Optional[str]:
+        """Expose reviewer full name in serialized API responses."""
+        if self.reviewer is None:
+            return None
+        return self.reviewer.full_name

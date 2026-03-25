@@ -39,8 +39,11 @@ class PurchaseOrderOut(SchemaBase):
 
     id: str
     purchase_request_id: str
+    purchase_request_title: Optional[str]
     supplier_id: str
+    supplier_name: Optional[str]
     manager_id: str
+    manager_name: Optional[str]
     status: PurchaseOrderStatus
     supplier_note: Optional[str]
     delivery_note: Optional[str]

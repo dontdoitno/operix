@@ -27,6 +27,10 @@ class PurchaseOrderRepository:
         stmt = select(PurchaseOrder).where(PurchaseOrder.purchase_request_id == request_id)
         return self.db.scalar(stmt)
 
+    def list_all(self) -> list[PurchaseOrder]:
+        stmt = select(PurchaseOrder).order_by(PurchaseOrder.created_at.desc())
+        return list(self.db.scalars(stmt).all())
+
     def list_by_supplier(self, supplier_id: str) -> list[PurchaseOrder]:
         stmt = (
             select(PurchaseOrder)

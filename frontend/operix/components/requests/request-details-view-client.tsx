@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -9,91 +9,188 @@ import { Modal } from "@/components/ui/modal";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { formatCurrency, formatDate } from "@/lib/format";
 import {
-  MerchandiseItem,
-  Order,
-  PurchaseRequest,
-  RequestStatus,
-  merchandise,
-  suppliers,
-} from "@/lib/mock-data";
+  createOrder,
+  getPurchaseRequest,
+  listOrders,
+  listSuppliers,
+  reviewPurchaseRequest,
+  updatePurchaseRequest,
+} from "@/lib/procurement-api";
+import { mapOrderToViewModel, mapRequestToViewModel, OrderViewModel, RequestViewModel } from "@/lib/procurement-view";
 import { UserRole, withRole } from "@/lib/roles";
 
 interface RequestDetailsViewClientProps {
-  request: PurchaseRequest;
+  requestId: string;
   role: UserRole;
   canApproveRequest: boolean;
   canEditRequest: boolean;
-  relatedOrder: Order | null;
-  timeline: Array<{ label: string; date: string }>;
 }
 
 export function RequestDetailsViewClient({
-  request,
+  requestId,
   role,
   canApproveRequest,
   canEditRequest,
-  relatedOrder,
-  timeline,
 }: RequestDetailsViewClientProps) {
-  const [requestState, setRequestState] = useState<PurchaseRequest>(request);
+  const [requestState, setRequestState] = useState<RequestViewModel | null>(null);
+  const [relatedOrder, setRelatedOrder] = useState<OrderViewModel | null>(null);
   const [statusMessage, setStatusMessage] = useState("");
+  const [errorText, setErrorText] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
   const [isEditOpen, setIsEditOpen] = useState(false);
 
-  const [title, setTitle] = useState(request.title);
-  const [department, setDepartment] = useState(request.department);
-  const [supplierId, setSupplierId] = useState(request.supplierId);
-  const [productId, setProductId] = useState(request.productId);
-  const [quantity, setQuantity] = useState(request.requestedQuantity);
-  const [description, setDescription] = useState(request.description);
+  const [title, setTitle] = useState("");
+  const [amount, setAmount] = useState(1);
+  const [description, setDescription] = useState("");
 
-  const availableProducts = useMemo(
-    () => merchandise.filter((item) => item.supplierId === supplierId),
-    [supplierId],
-  );
-
-  const selectedProduct: MerchandiseItem | undefined =
-    availableProducts.find((item) => item.id === productId) ?? availableProducts[0];
-
-  const safeQuantity = Math.min(Math.max(quantity, 1), selectedProduct?.availableQuantity ?? 1);
-  const nextAmount = (selectedProduct?.price ?? 0) * safeQuantity;
+  const [suppliers, setSuppliers] = useState<Array<{ id: string; full_name: string }>>([]);
+  const [selectedSupplierId, setSelectedSupplierId] = useState("");
+  const [isCreateOrderOpen, setIsCreateOrderOpen] = useState(false);
 
   const canEmployeeEditByStatus =
-    requestState.status === "На согласовании" || requestState.status === "Отклонено";
+    requestState?.statusLabel === "Ожидает" || requestState?.statusLabel === "Отклонено";
 
-  const handleEditSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const timeline = useMemo(() => {
+    if (!requestState) {
+      return [] as Array<{ label: string; date: string }>;
+    }
+
+    const baseTimeline = [{ label: "Запрос создан", date: requestState.createdAt }];
+
+    if (requestState.statusLabel === "Одобрено" || requestState.statusLabel === "Заказ создан") {
+      baseTimeline.push({ label: "Одобрен менеджером", date: requestState.updatedAt });
+    }
+
+    if (requestState.statusLabel === "Отклонено") {
+      baseTimeline.push({ label: "Отклонен менеджером", date: requestState.updatedAt });
+    }
+
+    if (relatedOrder) {
+      baseTimeline.push({ label: "Создан связанный заказ", date: relatedOrder.createdAt });
+    }
+
+    return baseTimeline;
+  }, [relatedOrder, requestState]);
+
+  const loadRequestData = async () => {
+    setIsLoading(true);
+    setErrorText("");
+
+    try {
+      const [requestResponse, ordersResponse, suppliersResponse] = await Promise.all([
+        getPurchaseRequest(requestId),
+        listOrders(),
+        canApproveRequest ? listSuppliers() : Promise.resolve([]),
+      ]);
+
+      const mappedRequest = mapRequestToViewModel(requestResponse);
+      const mappedOrders = ordersResponse.map(mapOrderToViewModel);
+      const foundRelatedOrder = mappedOrders.find((order) => order.requestId === mappedRequest.id) ?? null;
+
+      setRequestState(mappedRequest);
+      setRelatedOrder(foundRelatedOrder);
+      setTitle(mappedRequest.title);
+      setAmount(Math.max(mappedRequest.amount, 1));
+      setDescription(mappedRequest.description);
+
+      if (canApproveRequest && suppliersResponse.length > 0) {
+        setSuppliers(suppliersResponse.map((s) => ({ id: s.id, full_name: s.full_name })));
+        setSelectedSupplierId(suppliersResponse[0].id);
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Не удалось загрузить данные запроса.";
+      setErrorText(message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadRequestData();
+  }, [requestId]);
+
+  const handleEditSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    if (!selectedProduct) {
+    if (!requestState) {
       return;
     }
 
-    const selectedSupplier = suppliers.find((supplier) => supplier.id === supplierId);
+    setErrorText("");
 
-    setRequestState((prevState) => ({
-      ...prevState,
-      title,
-      department,
-      supplierId,
-      supplierName: selectedSupplier?.name ?? prevState.supplierName,
-      productId: selectedProduct.id,
-      productName: selectedProduct.name,
-      requestedQuantity: safeQuantity,
-      unitPrice: selectedProduct.price,
-      amount: nextAmount,
-      description,
-    }));
+    try {
+      const updatedRequest = await updatePurchaseRequest(requestState.id, {
+        title,
+        amount,
+        description,
+        currency: requestState.currency,
+      });
 
-    setIsEditOpen(false);
-    setStatusMessage("Запрос обновлен. Изменения сохранены в карточке.");
+      setRequestState(mapRequestToViewModel(updatedRequest));
+      setIsEditOpen(false);
+      setStatusMessage("Запрос обновлен и сохранен в базе данных.");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Не удалось обновить запрос.";
+      setErrorText(message);
+    }
   };
 
-  const handleStatusChange = (nextStatus: RequestStatus, message: string) => {
-    setRequestState((prevState) => ({
-      ...prevState,
-      status: nextStatus,
-    }));
-    setStatusMessage(message);
+  const handleReview = async (approve: boolean) => {
+    if (!requestState) {
+      return;
+    }
+
+    setErrorText("");
+
+    try {
+      const reviewedRequest = await reviewPurchaseRequest(requestState.id, {
+        approve,
+        rejection_reason: approve ? undefined : "Отклонено менеджером",
+      });
+
+      setRequestState(mapRequestToViewModel(reviewedRequest));
+      setStatusMessage(approve ? "Запрос одобрен менеджером." : "Запрос отклонен менеджером.");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Не удалось обновить статус запроса.";
+      setErrorText(message);
+    }
   };
+
+  const handleCreateOrder = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!requestState) {
+      return;
+    }
+
+    setErrorText("");
+
+    try {
+      await createOrder({
+        purchase_request_id: requestState.id,
+        supplier_id: selectedSupplierId,
+      });
+
+      setIsCreateOrderOpen(false);
+      setStatusMessage("Заказ создан и назначен поставщику.");
+      await loadRequestData();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Не удалось создать заказ.";
+      setErrorText(message);
+    }
+  };
+
+  const isApproved = requestState?.statusLabel === "Одобрено";
+  const isPending = requestState?.statusLabel === "Ожидает";
+  const canCreateOrderHere = canApproveRequest && isApproved && !relatedOrder && suppliers.length > 0;
+
+  if (isLoading) {
+    return <Card className="rounded-3xl">Загрузка...</Card>;
+  }
+
+  if (!requestState) {
+    return <Card className="rounded-3xl border border-[#FECACA] bg-[#FEF2F2] text-[#991B1B]">{errorText || "Запрос не найден."}</Card>;
+  }
 
   return (
     <div className="space-y-6 pb-4">
@@ -103,8 +200,12 @@ export function RequestDetailsViewClient({
           <h1 className="mt-2 text-3xl font-semibold tracking-tight text-[#1F2937]">{requestState.title}</h1>
           <p className="mt-2 text-sm text-[#6B7280]">{requestState.id}</p>
         </div>
-        <StatusBadge status={requestState.status} />
+        <StatusBadge status={requestState.statusLabel} />
       </section>
+
+      {errorText ? (
+        <Card className="rounded-3xl border border-[#FECACA] bg-[#FEF2F2] text-[#991B1B]">{errorText}</Card>
+      ) : null}
 
       <section className="grid gap-6 lg:grid-cols-[2fr_1fr]">
         <Card className="rounded-3xl">
@@ -132,15 +233,15 @@ export function RequestDetailsViewClient({
             </div>
             <div className="rounded-2xl border border-[#E5E7EB] bg-[#F9FAFB] p-4">
               <dt className="text-xs uppercase tracking-wide text-[#6B7280]">Статус</dt>
-              <dd className="mt-1 text-sm font-medium text-[#1F2937]">{requestState.status}</dd>
+              <dd className="mt-1 text-sm font-medium text-[#1F2937]">{requestState.statusLabel}</dd>
             </div>
             <div className="rounded-2xl border border-[#E5E7EB] bg-[#F9FAFB] p-4">
               <dt className="text-xs uppercase tracking-wide text-[#6B7280]">Автор</dt>
-              <dd className="mt-1 text-sm font-medium text-[#1F2937]">{requestState.requester}</dd>
+              <dd className="mt-1 text-sm font-medium text-[#1F2937]">{requestState.requesterName}</dd>
             </div>
             <div className="rounded-2xl border border-[#E5E7EB] bg-[#F9FAFB] p-4">
-              <dt className="text-xs uppercase tracking-wide text-[#6B7280]">Отправлен</dt>
-              <dd className="mt-1 text-sm font-medium text-[#1F2937]">{formatDate(requestState.submittedAt)}</dd>
+              <dt className="text-xs uppercase tracking-wide text-[#6B7280]">Создан</dt>
+              <dd className="mt-1 text-sm font-medium text-[#1F2937]">{formatDate(requestState.createdAt)}</dd>
             </div>
           </dl>
 
@@ -158,7 +259,7 @@ export function RequestDetailsViewClient({
               <p className="text-sm text-[#6B7280]">ID заказа</p>
               <p className="text-base font-semibold text-[#1F2937]">{relatedOrder.id}</p>
               <p className="text-sm text-[#6B7280]">Поставщик</p>
-              <p className="text-sm font-medium text-[#1F2937]">{relatedOrder.supplier}</p>
+              <p className="text-sm font-medium text-[#1F2937]">{relatedOrder.supplierName}</p>
               <Link href={withRole(`/orders/${relatedOrder.id}`, role)}>
                 <Button size="sm" variant="secondary">
                   Открыть детали заказа
@@ -176,25 +277,21 @@ export function RequestDetailsViewClient({
               </Button>
             </Link>
 
-            {canApproveRequest ? (
+            {canApproveRequest && isPending ? (
               <>
-                <Button
-                  className="w-full"
-                  onClick={() => handleStatusChange("Одобрено", "Запрос одобрен менеджером.")}
-                  size="sm"
-                  variant="primary"
-                >
+                <Button className="w-full" onClick={() => void handleReview(true)} size="sm" variant="primary">
                   Одобрить
                 </Button>
-                <Button
-                  className="w-full"
-                  onClick={() => handleStatusChange("Отклонено", "Запрос отклонен менеджером.")}
-                  size="sm"
-                  variant="secondary"
-                >
+                <Button className="w-full" onClick={() => void handleReview(false)} size="sm" variant="secondary">
                   Отклонить
                 </Button>
               </>
+            ) : null}
+
+            {canCreateOrderHere ? (
+              <Button className="w-full" onClick={() => setIsCreateOrderOpen(true)} size="sm" variant="primary">
+                Создать заказ поставщику
+              </Button>
             ) : null}
           </div>
         </Card>
@@ -246,93 +343,18 @@ export function RequestDetailsViewClient({
           </div>
 
           <div className="space-y-1">
-            <label className="text-sm font-medium text-[#1F2937]" htmlFor="edit-department">
-              Отдел
+            <label className="text-sm font-medium text-[#1F2937]" htmlFor="edit-amount">
+              Сумма
             </label>
             <input
               className="h-10 w-full rounded-xl border border-[#E5E7EB] px-3 text-sm text-[#1F2937] outline-none ring-[#FF5A3C]/40 focus:ring-4"
-              id="edit-department"
-              onChange={(event) => setDepartment(event.target.value)}
+              id="edit-amount"
+              min={1}
+              onChange={(event) => setAmount(Number(event.target.value) || 1)}
               required
-              type="text"
-              value={department}
+              type="number"
+              value={amount}
             />
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-1">
-              <label className="text-sm font-medium text-[#1F2937]" htmlFor="edit-supplier">
-                Поставщик
-              </label>
-              <select
-                className="h-10 w-full rounded-xl border border-[#E5E7EB] bg-white px-3 text-sm text-[#1F2937] outline-none ring-[#FF5A3C]/40 focus:ring-4"
-                id="edit-supplier"
-                onChange={(event) => {
-                  const nextSupplierId = event.target.value;
-                  setSupplierId(nextSupplierId);
-                  const firstProduct = merchandise.find((item) => item.supplierId === nextSupplierId);
-                  setProductId(firstProduct?.id ?? "");
-                  setQuantity(1);
-                }}
-                value={supplierId}
-              >
-                {suppliers.map((supplier) => (
-                  <option key={supplier.id} value={supplier.id}>
-                    {supplier.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-sm font-medium text-[#1F2937]" htmlFor="edit-product">
-                Товар
-              </label>
-              <select
-                className="h-10 w-full rounded-xl border border-[#E5E7EB] bg-white px-3 text-sm text-[#1F2937] outline-none ring-[#FF5A3C]/40 focus:ring-4"
-                id="edit-product"
-                onChange={(event) => {
-                  setProductId(event.target.value);
-                  setQuantity(1);
-                }}
-                value={selectedProduct?.id ?? ""}
-              >
-                {availableProducts.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.name} — остаток {item.availableQuantity}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-1">
-              <label className="text-sm font-medium text-[#1F2937]" htmlFor="edit-quantity">
-                Количество
-              </label>
-              <input
-                className="h-10 w-full rounded-xl border border-[#E5E7EB] px-3 text-sm text-[#1F2937] outline-none ring-[#FF5A3C]/40 focus:ring-4"
-                id="edit-quantity"
-                max={selectedProduct?.availableQuantity ?? 1}
-                min={1}
-                onChange={(event) => setQuantity(Number(event.target.value) || 1)}
-                type="number"
-                value={safeQuantity}
-              />
-            </div>
-            <div className="space-y-1">
-              <label className="text-sm font-medium text-[#1F2937]" htmlFor="edit-amount">
-                Сумма
-              </label>
-              <input
-                className="h-10 w-full rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] px-3 text-sm font-medium text-[#1F2937]"
-                id="edit-amount"
-                readOnly
-                type="text"
-                value={formatCurrency(nextAmount)}
-              />
-            </div>
           </div>
 
           <div className="space-y-1">
@@ -346,6 +368,49 @@ export function RequestDetailsViewClient({
               required
               value={description}
             />
+          </div>
+        </form>
+      </Modal>
+
+      <Modal
+        isOpen={isCreateOrderOpen}
+        onClose={() => setIsCreateOrderOpen(false)}
+        title="Создание заказа поставщику"
+        footer={
+          <>
+            <Button onClick={() => setIsCreateOrderOpen(false)} variant="secondary">
+              Отмена
+            </Button>
+            <Button form="create-order-form" type="submit">
+              Создать заказ
+            </Button>
+          </>
+        }
+      >
+        <form className="space-y-4" id="create-order-form" onSubmit={handleCreateOrder}>
+          <div className="rounded-2xl border border-[#E5E7EB] bg-[#F9FAFB] p-4">
+            <p className="text-xs uppercase tracking-wide text-[#6B7280]">Запрос</p>
+            <p className="mt-1 text-sm font-semibold text-[#1F2937]">{requestState?.title}</p>
+            <p className="mt-1 text-xs text-[#6B7280]">{formatCurrency(requestState?.amount ?? 0)}</p>
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-sm font-medium text-[#1F2937]" htmlFor="order-supplier">
+              Назначить поставщика
+            </label>
+            <select
+              className="h-10 w-full rounded-xl border border-[#E5E7EB] bg-white px-3 text-sm text-[#1F2937] outline-none ring-[#FF5A3C]/40 focus:ring-4"
+              id="order-supplier"
+              onChange={(event) => setSelectedSupplierId(event.target.value)}
+              required
+              value={selectedSupplierId}
+            >
+              {suppliers.map((supplier) => (
+                <option key={supplier.id} value={supplier.id}>
+                  {supplier.full_name}
+                </option>
+              ))}
+            </select>
           </div>
         </form>
       </Modal>

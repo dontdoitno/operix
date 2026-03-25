@@ -8,16 +8,19 @@ from app.schemas.purchase_request import (
     PurchaseRequestCreate,
     PurchaseRequestDecision,
     PurchaseRequestOut,
+    PurchaseRequestUpdate,
 )
-from app.schemas.user import UserCreate, UserOut
+from app.schemas.user import UserCreate, UserOut, UserUpdate
 
 __all__ = [
     "UserCreate",
     "UserOut",
+    "UserUpdate",
     "RegisterRequest",
     "LoginRequest",
     "AuthSessionOut",
     "PurchaseRequestCreate",
+    "PurchaseRequestUpdate",
     "PurchaseRequestDecision",
     "PurchaseRequestOut",
     "PurchaseOrderCreate",

@@ -10,6 +10,7 @@ from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
 from app.models.auth_session import AuthSession
+from app.models.enums import UserRole
 from app.models.user import User
 
 
@@ -58,7 +59,6 @@ def test_register_creates_user_and_session_in_database() -> None:
             json={
                 "email": "new.employee@operix.dev",
                 "full_name": "Новый Сотрудник",
-                "role": "employee",
                 "password": "StrongPass123",
             },
         )
@@ -88,6 +88,37 @@ def test_register_creates_user_and_session_in_database() -> None:
             pass
 
 
+def test_register_ignores_privileged_role_and_creates_employee() -> None:
+    context_generator = _build_test_context()
+    context = next(context_generator)
+
+    try:
+        register_response = context.client.post(
+            "/api/v1/register",
+            json={
+                "email": "spoofed.manager@operix.dev",
+                "full_name": "Попытка Эскалации",
+                "password": "StrongPass123",
+                "role": "manager",
+            },
+        )
+
+        assert register_response.status_code == 201
+        payload = register_response.json()
+        assert payload["user"]["role"] == "employee"
+
+        with context.session_factory() as db:
+            created_user = db.scalar(select(User).where(User.email == "spoofed.manager@operix.dev"))
+
+        assert created_user is not None
+        assert created_user.role == UserRole.EMPLOYEE
+    finally:
+        try:
+            next(context_generator)
+        except StopIteration:
+            pass
+
+
 def test_login_logout_cycle_revokes_session_and_blocks_future_requests() -> None:
     context_generator = _build_test_context()
     context = next(context_generator)
@@ -96,9 +127,8 @@ def test_login_logout_cycle_revokes_session_and_blocks_future_requests() -> None
         register_response = context.client.post(
             "/api/v1/register",
             json={
-                "email": "secure.manager@operix.dev",
-                "full_name": "Безопасный Менеджер",
-                "role": "manager",
+                "email": "secure.employee@operix.dev",
+                "full_name": "Безопасный Сотрудник",
                 "password": "AnotherStrongPass123",
             },
         )
@@ -107,7 +137,7 @@ def test_login_logout_cycle_revokes_session_and_blocks_future_requests() -> None
         login_response = context.client.post(
             "/api/v1/login",
             json={
-                "email": "secure.manager@operix.dev",
+                "email": "secure.employee@operix.dev",
                 "password": "AnotherStrongPass123",
             },
         )
@@ -122,7 +152,7 @@ def test_login_logout_cycle_revokes_session_and_blocks_future_requests() -> None
         assert logout_response.status_code == 204
 
         blocked_response = context.client.get(
-            "/api/v1/procurement/requests/pending",
+            "/api/v1/procurement/requests/my",
             headers={"Authorization": f"Bearer {access_token}"},
         )
         assert blocked_response.status_code == 401
@@ -151,8 +181,7 @@ def test_login_with_wrong_password_returns_unauthorized() -> None:
             "/api/v1/register",
             json={
                 "email": "supplier.auth@operix.dev",
-                "full_name": "Поставщик Авторизации",
-                "role": "supplier",
+                "full_name": "Пользователь Авторизации",
                 "password": "SupplierPass123",
             },
         )

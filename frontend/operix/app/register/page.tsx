@@ -5,18 +5,15 @@ import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 
 import { Card } from "@/components/ui/card";
-import { ApiUserRole, registerRequest } from "@/lib/api";
+import { registerRequest } from "@/lib/api";
 import { saveAuthSession } from "@/lib/auth-storage";
-import { roleLabels, withRole } from "@/lib/roles";
-
-const availableRoles: ApiUserRole[] = ["employee", "manager", "supplier"];
+import { withRole } from "@/lib/roles";
 
 export default function RegisterPage() {
   const router = useRouter();
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState<ApiUserRole>("employee");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -30,7 +27,6 @@ export default function RegisterPage() {
         full_name: fullName,
         email,
         password,
-        role,
       });
 
       saveAuthSession({
@@ -55,14 +51,14 @@ export default function RegisterPage() {
           <p className="text-sm font-medium text-[#6B7280]">Создание аккаунта Operix</p>
           <h1 className="text-3xl font-semibold tracking-tight text-[#1F2937]">Регистрация</h1>
           <p className="text-sm text-[#6B7280]">
-            Зарегистрируйте профиль, чтобы управлять заявками, заказами и поставками.
+            Публичная регистрация доступна для роли «Сотрудник». Роли менеджера и поставщика назначаются менеджером.
           </p>
         </div>
 
         <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
           <div className="space-y-1">
             <label className="text-sm font-medium text-[#1F2937]" htmlFor="full-name">
-              ФИО / Название компании
+              ФИО
             </label>
             <input
               className="h-11 w-full rounded-xl border border-[#E5E7EB] px-3 text-sm text-[#1F2937] outline-none ring-[#FF5A3C]/40 focus:ring-4"
@@ -88,24 +84,6 @@ export default function RegisterPage() {
               type="email"
               value={email}
             />
-          </div>
-
-          <div className="space-y-1">
-            <label className="text-sm font-medium text-[#1F2937]" htmlFor="role">
-              Роль
-            </label>
-            <select
-              className="h-11 w-full rounded-xl border border-[#E5E7EB] bg-white px-3 text-sm text-[#1F2937] outline-none ring-[#FF5A3C]/40 focus:ring-4"
-              id="role"
-              onChange={(event) => setRole(event.target.value as ApiUserRole)}
-              value={role}
-            >
-              {availableRoles.map((roleOption) => (
-                <option key={roleOption} value={roleOption}>
-                  {roleLabels[roleOption]}
-                </option>
-              ))}
-            </select>
           </div>
 
           <div className="space-y-1">

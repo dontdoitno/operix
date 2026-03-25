@@ -1,64 +1,60 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
-import { formatCurrency } from "@/lib/format";
-import { merchandise, suppliers } from "@/lib/mock-data";
+import { createPurchaseRequest } from "@/lib/procurement-api";
 
 interface CreateRequestModalProps {
   triggerLabel?: string;
-  defaultSupplierId?: string;
-  defaultProductId?: string;
+  onCreated?: () => Promise<void> | void;
 }
 
 export function CreateRequestModal({
   triggerLabel = "Новая заявка",
-  defaultSupplierId,
-  defaultProductId,
+  onCreated,
 }: CreateRequestModalProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [title, setTitle] = useState("");
-  const [department, setDepartment] = useState("");
-  const [supplierId, setSupplierId] = useState(defaultSupplierId ?? suppliers[0]?.id ?? "");
-  const [productId, setProductId] = useState(defaultProductId ?? "");
-  const [quantity, setQuantity] = useState(1);
+  const [amount, setAmount] = useState(100);
   const [description, setDescription] = useState("");
   const [successText, setSuccessText] = useState("");
-
-  const availableProducts = useMemo(
-    () => merchandise.filter((item) => item.supplierId === supplierId),
-    [supplierId],
-  );
-
-  const selectedProduct = availableProducts.find((item) => item.id === productId) ?? availableProducts[0];
-  const effectiveProductId = selectedProduct?.id ?? "";
-  const maxQuantity = selectedProduct?.availableQuantity ?? 1;
-  const safeQuantity = Math.min(Math.max(quantity, 1), maxQuantity);
-  const totalAmount = (selectedProduct?.price ?? 0) * safeQuantity;
+  const [errorText, setErrorText] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const resetForm = () => {
     setTitle("");
-    setDepartment("");
-    setSupplierId(defaultSupplierId ?? suppliers[0]?.id ?? "");
-    setProductId(defaultProductId ?? "");
-    setQuantity(1);
+    setAmount(100);
     setDescription("");
   };
 
-  const onSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    setErrorText("");
+    setIsSubmitting(true);
 
-    if (!selectedProduct) {
-      return;
+    try {
+      await createPurchaseRequest({
+        title,
+        description,
+        amount,
+        currency: "USD",
+      });
+
+      setSuccessText("Заявка отправлена и сохранена в базе данных.");
+      setIsOpen(false);
+      resetForm();
+
+      if (onCreated) {
+        await onCreated();
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Не удалось создать заявку.";
+      setErrorText(message);
+    } finally {
+      setIsSubmitting(false);
     }
-
-    setSuccessText(
-      `Заявка отправлена: ${title || "Без названия"} — ${selectedProduct.name}, ${safeQuantity} шт. на сумму ${formatCurrency(totalAmount)}.`,
-    );
-    setIsOpen(false);
-    resetForm();
   };
 
   return (
@@ -67,9 +63,8 @@ export function CreateRequestModal({
         <Button onClick={() => setIsOpen(true)} size="md" variant="primary">
           {triggerLabel}
         </Button>
-        {successText ? (
-          <p className="text-xs font-medium text-[#166534]">{successText}</p>
-        ) : null}
+        {successText ? <p className="text-xs font-medium text-[#166534]">{successText}</p> : null}
+        {errorText ? <p className="text-xs font-medium text-[#B91C1C]">{errorText}</p> : null}
       </div>
 
       <Modal
@@ -82,7 +77,7 @@ export function CreateRequestModal({
               Отмена
             </Button>
             <Button form="create-request-form" type="submit">
-              Отправить заявку
+              {isSubmitting ? "Сохраняем..." : "Отправить заявку"}
             </Button>
           </>
         }
@@ -104,99 +99,18 @@ export function CreateRequestModal({
           </div>
 
           <div className="space-y-1">
-            <label className="text-sm font-medium text-[#1F2937]" htmlFor="department">
-              Отдел
+            <label className="text-sm font-medium text-[#1F2937]" htmlFor="amount">
+              Сумма
             </label>
             <input
               className="h-10 w-full rounded-xl border border-[#E5E7EB] px-3 text-sm text-[#1F2937] outline-none ring-[#FF5A3C]/40 focus:ring-4"
-              id="department"
-              onChange={(event) => setDepartment(event.target.value)}
-              placeholder="Инженерия"
+              id="amount"
+              min={1}
+              onChange={(event) => setAmount(Number(event.target.value) || 1)}
               required
-              type="text"
-              value={department}
+              type="number"
+              value={amount}
             />
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-1">
-              <label className="text-sm font-medium text-[#1F2937]" htmlFor="supplier">
-                Поставщик
-              </label>
-              <select
-                className="h-10 w-full rounded-xl border border-[#E5E7EB] bg-white px-3 text-sm text-[#1F2937] outline-none ring-[#FF5A3C]/40 focus:ring-4"
-                id="supplier"
-                onChange={(event) => {
-                  const nextSupplierId = event.target.value;
-                  setSupplierId(nextSupplierId);
-                  const firstProduct = merchandise.find((item) => item.supplierId === nextSupplierId);
-                  setProductId(firstProduct?.id ?? "");
-                  setQuantity(1);
-                }}
-                required
-                value={supplierId}
-              >
-                {suppliers.map((supplier) => (
-                  <option key={supplier.id} value={supplier.id}>
-                    {supplier.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-sm font-medium text-[#1F2937]" htmlFor="product">
-                Доступный товар
-              </label>
-              <select
-                className="h-10 w-full rounded-xl border border-[#E5E7EB] bg-white px-3 text-sm text-[#1F2937] outline-none ring-[#FF5A3C]/40 focus:ring-4"
-                id="product"
-                onChange={(event) => {
-                  setProductId(event.target.value);
-                  setQuantity(1);
-                }}
-                required
-                value={effectiveProductId}
-              >
-                {availableProducts.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.name} — остаток {item.availableQuantity}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-1">
-              <label className="text-sm font-medium text-[#1F2937]" htmlFor="quantity">
-                Количество
-              </label>
-              <input
-                className="h-10 w-full rounded-xl border border-[#E5E7EB] px-3 text-sm text-[#1F2937] outline-none ring-[#FF5A3C]/40 focus:ring-4"
-                id="quantity"
-                max={maxQuantity}
-                min={1}
-                onChange={(event) => setQuantity(Number(event.target.value) || 1)}
-                required
-                type="number"
-                value={safeQuantity}
-              />
-              <p className="text-xs text-[#6B7280]">Доступно к заказу: {maxQuantity} шт.</p>
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-sm font-medium text-[#1F2937]" htmlFor="amount">
-                Сумма (автоматически)
-              </label>
-              <input
-                className="h-10 w-full rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] px-3 text-sm font-medium text-[#1F2937]"
-                id="amount"
-                readOnly
-                type="text"
-                value={formatCurrency(totalAmount)}
-              />
-            </div>
           </div>
 
           <div className="space-y-1">

@@ -32,5 +32,7 @@ def get_db() -> Generator[Session, None, None]:
     db = session_factory()
     try:
         yield db
+    except Exception:
+        db.rollback()
     finally:
         db.close()

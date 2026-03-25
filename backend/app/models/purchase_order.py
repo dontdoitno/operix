@@ -71,3 +71,24 @@ class PurchaseOrder(Base):
     purchase_request = relationship("PurchaseRequest", back_populates="purchase_order")
     supplier = relationship("User", foreign_keys=[supplier_id], back_populates="supplied_orders")
     manager = relationship("User", foreign_keys=[manager_id], back_populates="managed_orders")
+
+    @property
+    def supplier_name(self) -> Optional[str]:
+        """Expose supplier full name in serialized API responses."""
+        if self.supplier is None:
+            return None
+        return self.supplier.full_name
+
+    @property
+    def manager_name(self) -> Optional[str]:
+        """Expose manager full name in serialized API responses."""
+        if self.manager is None:
+            return None
+        return self.manager.full_name
+
+    @property
+    def purchase_request_title(self) -> Optional[str]:
+        """Expose related purchase request title in serialized API responses."""
+        if self.purchase_request is None:
+            return None
+        return self.purchase_request.title

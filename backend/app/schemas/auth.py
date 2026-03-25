@@ -2,17 +2,15 @@ from datetime import datetime
 
 from pydantic import Field, field_validator
 
-from app.models.enums import UserRole
 from app.schemas.base import SchemaBase
 from app.schemas.user import UserOut
 
 
 class RegisterRequest(SchemaBase):
-    """Payload for user registration with password credentials."""
+    """Payload for public self-registration with password credentials."""
 
     email: str = Field(min_length=5, max_length=255)
     full_name: str = Field(min_length=2, max_length=255)
-    role: UserRole
     password: str = Field(min_length=8, max_length=128)
 
     @field_validator("email")

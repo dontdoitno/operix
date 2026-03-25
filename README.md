@@ -1,316 +1,273 @@
-# Operix — Procurement Management Platform
+# Operix — Procurement Management Platform (MVP)
 
-## Описание
+Operix is a lightweight procurement SaaS MVP that connects **Employees**, **Managers**, and **Suppliers** in one transparent workflow.
 
-**Operix** — это SaaS-платформа для управления закупками и взаимодействием с поставщиками внутри компании.
-
-Платформа помогает компаниям структурировать процессы закупок, контролировать расходы и централизовать взаимодействие между сотрудниками, менеджерами и поставщиками.
-
-Во многих компаниях закупки ведутся через **email, Excel и мессенджеры**, что приводит к хаосу, отсутствию прозрачности и сложностям в контроле расходов. Operix решает эту проблему, предоставляя единую систему для управления заявками, одобрениями и заказами.
-
-Платформа покрывает полный цикл закупки:
-
-1. Создание запроса на закупку
-2. Рассмотрение и одобрение запроса менеджером
-3. Создание заказа поставщику
-4. Выполнение заказа поставщиком
-5. Отслеживание статуса заказа
+The product solves a common pain point: procurement spread across email, spreadsheets, and chats. Operix brings the process into one system with explicit statuses, ownership, and role-based actions.
 
 ---
 
-# Цели проекта
+## 1) What the project does
 
-Основная цель Operix — создать **простую и прозрачную систему управления закупками** для компаний.
+Operix covers a full procurement cycle:
 
-Ключевые задачи системы:
+1. Employee creates a purchase request
+2. Manager reviews and approves/rejects request
+3. Manager creates a purchase order for a supplier
+4. Supplier processes and updates order status
+5. Employee confirms receipt
 
-* централизовать процесс закупок
-* сделать расходы компании прозрачными
-* упростить согласование заявок
-* улучшить взаимодействие с поставщиками
-* предоставить удобный интерфейс для всех участников процесса
-
-Operix должен стать **единым центром управления закупками**, где каждая заявка и каждый заказ имеют понятный статус и историю.
+This flow gives visibility to all actors and creates an auditable process without enterprise complexity.
 
 ---
 
-# Основные роли пользователей
+## 2) Roles and permissions
 
-В системе существует три типа пользователей.
+### Employee
+Can:
+- create purchase requests
+- view own requests and statuses
+- view own orders
+- confirm receipt for delivered orders
 
-## Сотрудник (Employee)
+Cannot:
+- approve/reject requests
+- create orders
+- manage suppliers
 
-Сотрудник — это пользователь, которому необходимо приобрести товар или услугу для работы.
+### Manager
+Can:
+- view all pending requests
+- approve/reject requests
+- create purchase orders
+- view managed orders
+- manage supplier interactions
 
-Сотрудники могут:
+### Supplier
+Can:
+- view assigned orders
+- update assigned order statuses through valid transitions
+- provide supplier and delivery notes
 
-* создавать запросы на закупку
-* просматривать свои запросы
-* отслеживать статус заявок
-* открывать карточки запросов
-* подтверждать получение заказа
-
-Сотрудники не могут:
-
-* одобрять заявки
-* управлять поставщиками
-* управлять заказами
-
----
-
-## Менеджер (Manager)
-
-Менеджер отвечает за контроль расходов компании и управление процессом закупок.
-
-Менеджеры могут:
-
-* просматривать все запросы сотрудников
-* одобрять или отклонять заявки
-* создавать заказы поставщикам
-* управлять поставщиками
-* просматривать детали заказов
-* отслеживать закупочную активность
-
-Менеджеры имеют полный доступ к системе.
+Cannot:
+- access internal employee request review flows
 
 ---
 
-## Поставщик (Supplier)
+## 3) Architecture goals (for hackathon judging)
 
-Поставщик — это внешний пользователь системы, который выполняет заказы компании.
+This architecture is intentionally designed as **clear MVP architecture**:
 
-Поставщики могут:
-
-* просматривать назначенные им заказы
-* открывать карточки заказов
-* принимать заказы
-* отмечать заказы как выполненные
-
-Поставщики не имеют доступа к внутренним заявкам компании.
+- ✅ Explicit layer boundaries
+- ✅ Easy to explain in 2–3 minutes
+- ✅ Keeps business rules centralized
+- ✅ Supports future scaling without overengineering
+- ❌ No unnecessary enterprise patterns
 
 ---
 
-# Основные сущности системы
+## 4) Logical system division
 
-## Пользователь (User)
+## 4.1 Backend (FastAPI + SQLAlchemy + PostgreSQL)
 
-Представляет любого пользователя системы.
+Backend is split into clear layers:
 
-Поля:
+### A) API Layer (`backend/app/api`)
+**Responsibility:** HTTP transport and routing only.
 
-* id
-* имя
-* email
-* роль (employee, manager, supplier)
-* дата создания
+- Defines endpoints and request/response contracts
+- Applies auth/role dependencies
+- Delegates business logic to services
+- Returns schema-based responses
 
----
+Main routers:
+- `api/v1/endpoints/auth.py`
+- `api/v1/endpoints/users.py`
+- `api/v1/endpoints/procurement.py`
 
-## Поставщик (Supplier)
+### B) Service Layer (`backend/app/services`)
+**Responsibility:** business use-cases and workflow rules.
 
-Представляет компанию-поставщика.
+- Contains procurement lifecycle rules
+- Validates role permissions and state transitions
+- Coordinates repositories
+- Controls transaction boundaries (`commit`, `refresh`)
 
-Поля:
+Main services:
+- `AuthService`
+- `UserService`
+- `ProcurementService`
 
-* id
-* название
-* email
-* телефон
-* дата создания
+### C) Repository Layer (`backend/app/repositories`)
+**Responsibility:** database access abstraction.
 
-Поставщики получают заказы от компании.
+- Encapsulates SQLAlchemy queries
+- Provides focused persistence methods per aggregate
+- Keeps query logic out of API and services
 
----
+Main repositories:
+- `UserRepository`
+- `PurchaseRequestRepository`
+- `PurchaseOrderRepository`
+- `AuthSessionRepository`
 
-## Запрос на закупку (Purchase Request)
+### D) Domain/Data Layer (`backend/app/models`, `backend/app/schemas`)
 
-Запрос на закупку создается сотрудником.
+- **Models:** SQLAlchemy ORM entities + enums
+- **Schemas:** Pydantic request/response DTOs
+- **Enums:** shared lifecycle and role states
 
-Он содержит информацию о том, что необходимо приобрести.
+### E) Infrastructure/Core (`backend/app/core`, `backend/app/db`, `migrations`)
 
-Поля:
-
-* id
-* название
-* описание
-* сумма
-* статус
-* автор
-* дата создания
-
-Статусы запроса:
-
-* В ожидании
-* Одобрено
-* Отклонено
-
----
-
-## Заказ (Purchase Order)
-
-Заказ создается после одобрения запроса.
-
-Он отправляется поставщику для выполнения.
-
-Поля:
-
-* id
-* связанный запрос
-* поставщик
-* статус
-* дата создания
-
-Статусы заказа:
-
-* Создан
-* Принят
-* Доставлен
+- app settings and config
+- security utilities (password hashing, token hashing)
+- DB session factory
+- migration history (Alembic)
 
 ---
 
-# Основные функции системы
+## 4.2 Frontend (Next.js App Router + TypeScript + Tailwind)
 
-## Управление пользователями
+Frontend is divided by feature modules and shared components:
 
-Система позволяет:
+- `app/*` routes: page-level entry points
+- `components/*`: reusable UI and domain widgets
+- `lib/*`: API client, role helpers, formatting, session storage
 
-* создавать пользователей
-* управлять ролями
-* просматривать пользователей
-
-Роли определяют доступ к функциям системы
+This keeps UI scalable while preserving MVP speed.
 
 ---
 
-## Управление поставщиками
+## 5) Request flow (end-to-end)
 
-Поставщики могут:
+## 5.1 Example: create purchase request
 
-* зарегистрироваться на сайте самостоятельно
-* добавить товар - название, описание, цена, доступное для заказа количество
-* принимать или отклонять поступившие заказы
+1. **HTTP**: `POST /api/v1/procurement/requests`
+2. **API layer** validates payload and role (employee)
+3. **Service layer** checks permission and creates domain object
+4. **Repository layer** persists request
+5. **DB** stores row with `PENDING` status
+6. **API** returns `PurchaseRequestOut`
 
-Карточка поставщика содержит:
+## 5.2 Example: manager approval
 
-* контактную информацию
-* список связанных заказов
-* доступные товары
+1. `POST /api/v1/procurement/requests/{id}/review`
+2. Service checks manager role and request exists
+3. Service enforces: only `PENDING` can be reviewed
+4. Service sets status to `APPROVED` or `REJECTED`
+5. Changes are committed and returned
 
----
+## 5.3 Example: supplier order status transition
 
-## Управление запросами
+1. `POST /api/v1/procurement/orders/{id}/supplier-status`
+2. Service verifies assigned supplier ownership
+3. Service enforces strict transition map:
+   - `CREATED -> CONFIRMED -> IN_FULFILLMENT -> DELIVERED`
+4. Invalid transitions return conflict error
 
-Сотрудники могут создавать запросы на закупку
-
-Запрос содержит:
-
-* название
-* поставщик
-* товар
-* количество товара
-* общая сумма заказа
-* описание
-
-После создания запрос получает статус **“В ожидании”**.
-
-Менеджеры могут:
-
-* одобрить запрос
-* отклонить запрос
-
-Каждый запрос имеет страницу с детальной информацией
+This design makes the business process deterministic and easy to reason about.
 
 ---
 
-## Управление заказами
+## 6) Data model (MVP core)
 
-После одобрения запроса менеджер может создать заказ
+Core entities:
+- `User` (with role)
+- `PurchaseRequest`
+- `PurchaseOrder`
+- `AuthSession`
 
-Заказ содержит:
+Key relationship chain:
 
-* название товара
-* требуемое количетство товара
-* общая сумма за заказ
-* поставщика
-* статус
-
-Поставщики могут:
-
-* принять заказ
-* отклонить заказ
-* отметить заказ как доставленный
+`Employee(User)` → creates → `PurchaseRequest` → approved by `Manager(User)` → converted to `PurchaseOrder` → assigned to `Supplier(User)`
 
 ---
 
-## Карточки сущностей
+## 7) Why this architecture is strong for a hackathon
 
-Каждая сущность имеет страницу с детальной информацией
-
-Карточки доступны для:
-
-* запроса
-* заказа
-* поставщика
-
-Карточка содержит полную информацию об объекте и доступные действия
+- **Clear separation of concerns:** each layer has a single purpose
+- **Fast delivery:** minimal boilerplate, focused modules
+- **Maintainable:** business rules live in one place (services)
+- **Testable:** API tests validate role behavior and workflow states
+- **Demo-friendly:** easy to explain request lifecycle from endpoint to DB
 
 ---
 
-# Основные страницы интерфейса
+## 8) MVP scaling path (without rewriting everything)
 
-Система содержит следующие страницы:
+The current architecture can scale incrementally:
 
-1. Главная страница (Dashboard) - отображает общую активность закупок
-2. Запросы (Requests) - список запросов на закупку
-3. Карточка запроса (Request Details) - детальная информация о запросе
-4. Поставщики (Suppliers) - список поставщиков
-5. Карточка поставщика (Supplier Details) - детальная информация о поставщике.
-6. Заказы (Orders) - список заказов
-7. Карточка заказа (Order Details) - детальная информация о заказе
+### Phase 1 — Current MVP
+- Monolithic FastAPI app
+- PostgreSQL
+- Layered modules and role-based workflow
 
----
+### Phase 2 — Growth
+- Add pagination/filtering for list endpoints
+- Add read-optimized query methods in repositories
+- Add background tasks for notifications
+- Add caching for dashboard aggregates
 
-# Архитектура системы
+### Phase 3 — Production hardening
+- Add audit log table/events for compliance
+- Add observability (structured logs, metrics, tracing)
+- Add idempotency for critical write operations
+- Add rate limiting and stricter auth/session policies
 
-## Backend
+### Phase 4 — Higher scale
+- Split high-traffic domains into separate services if needed (orders/reporting)
+- Introduce queue/event bus for async integrations
+- Keep existing API contracts where possible
 
-Технологии:
-
-* FastAPI
-* PostgreSQL
-* SQLAlchemy
-* Alembic
-
-Архитектура:
-
-* API layer
-* Service layer
-* Repository layer
-* Database layer
+Important: current layer boundaries already reduce coupling, so this scaling path is evolutionary—not a rewrite.
 
 ---
 
-## Frontend
+## 9) Security baseline in current design
 
-Технологии:
+- Passwords are hashed (not stored in plaintext)
+- Session tokens are generated securely and stored as hashes
+- Role checks are enforced at API dependency + service rule levels
+- Business rule violations return controlled app errors
 
-* Next.js
-* React
-* TypeScript
-* TailwindCSS
-
-Фронтенд построен как **SaaS-dashboard интерфейс** с разделением доступа по ролям.
+Recommended next security increments:
+- token rotation strategy
+- session expiration cleanup job
+- login rate limiting
+- audit trail for privileged actions
 
 ---
 
-# Возможные будущие функции
+## 10) Repository structure (high-level)
 
-В дальнейшем Operix может быть расширен следующими возможностями:
+```text
+.
+├── backend/
+│   ├── app/
+│   │   ├── api/            # HTTP endpoints + dependencies
+│   │   ├── services/       # Use-cases and business rules
+│   │   ├── repositories/   # Persistence access
+│   │   ├── models/         # ORM entities and enums
+│   │   ├── schemas/        # Pydantic DTOs
+│   │   ├── core/           # Config, security, exceptions
+│   │   └── db/             # Session/base wiring
+│   ├── migrations/         # Alembic migrations
+│   └── tests/              # API workflow tests
+├── frontend/operix/
+│   ├── app/                # Next.js routes
+│   ├── components/         # Reusable UI and feature components
+│   └── lib/                # Client API, auth/session, role logic
+└── docker-compose.yml      # Local PostgreSQL
+```
 
-* обработка счетов (invoices)
-* отслеживание платежей
-* бюджетирование
-* аналитика расходов
-* рейтинг поставщиков
-* система уведомлений
-* журнал действий (audit log)
+---
+
+## 11) How to explain this architecture to judges in 30 seconds
+
+Operix uses a clean MVP layered architecture: **API -> Services -> Repositories -> Database**.
+
+- API handles transport and auth dependencies
+- Services own procurement business rules and role/state logic
+- Repositories isolate DB queries
+- Models/schemas keep contracts explicit
+
+This gives us clarity today and an easy path to scale tomorrow without overengineering.

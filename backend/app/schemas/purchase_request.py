@@ -22,6 +22,20 @@ class PurchaseRequestCreate(SchemaBase):
         return value.upper()
 
 
+class PurchaseRequestUpdate(SchemaBase):
+    """Payload for employee request updates before approval."""
+
+    title: str = Field(min_length=3, max_length=255)
+    description: str = Field(min_length=5)
+    amount: Decimal = Field(gt=0)
+    currency: str = Field(default="USD", min_length=3, max_length=3)
+
+    @field_validator("currency")
+    @classmethod
+    def normalize_currency(cls, value: str) -> str:
+        return value.upper()
+
+
 class PurchaseRequestDecision(SchemaBase):
     """Manager decision payload for request approval or rejection."""
 
@@ -39,7 +53,9 @@ class PurchaseRequestOut(SchemaBase):
     currency: str
     status: PurchaseRequestStatus
     requester_id: str
+    requester_name: Optional[str]
     reviewer_id: Optional[str]
+    reviewer_name: Optional[str]
     rejection_reason: Optional[str]
     approved_at: Optional[datetime]
     created_at: datetime

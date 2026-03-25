@@ -23,6 +23,10 @@ class PurchaseRequestRepository:
         stmt = select(PurchaseRequest).where(PurchaseRequest.id == request_id)
         return self.db.scalar(stmt)
 
+    def list_all(self) -> list[PurchaseRequest]:
+        stmt = select(PurchaseRequest).order_by(PurchaseRequest.created_at.desc())
+        return list(self.db.scalars(stmt).all())
+
     def list_by_requester(self, requester_id: str) -> list[PurchaseRequest]:
         stmt = (
             select(PurchaseRequest)
@@ -35,6 +39,14 @@ class PurchaseRequestRepository:
         stmt = (
             select(PurchaseRequest)
             .where(PurchaseRequest.status == PurchaseRequestStatus.PENDING)
+            .order_by(PurchaseRequest.created_at.desc())
+        )
+        return list(self.db.scalars(stmt).all())
+
+    def list_approved(self) -> list[PurchaseRequest]:
+        stmt = (
+            select(PurchaseRequest)
+            .where(PurchaseRequest.status == PurchaseRequestStatus.APPROVED)
             .order_by(PurchaseRequest.created_at.desc())
         )
         return list(self.db.scalars(stmt).all())

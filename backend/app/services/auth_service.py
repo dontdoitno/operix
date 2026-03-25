@@ -11,6 +11,7 @@ from app.core.security import (
     verify_password,
 )
 from app.models.auth_session import AuthSession
+from app.models.enums import UserRole
 from app.models.user import User
 from app.repositories.auth_session_repository import AuthSessionRepository
 from app.repositories.user_repository import UserRepository
@@ -26,7 +27,7 @@ class AuthService:
         self.auth_session_repository = AuthSessionRepository(db)
 
     def register(self, payload: RegisterRequest) -> tuple[User, str, datetime]:
-        """Create a new account and issue an authenticated session token."""
+        """Create a new employee account and issue an authenticated session token."""
         existing_user = self.user_repository.get_by_email(payload.email)
         if existing_user is not None:
             raise ConflictError("User with this email already exists.")
@@ -34,7 +35,7 @@ class AuthService:
         user = User(
             email=payload.email,
             full_name=payload.full_name,
-            role=payload.role,
+            role=UserRole.EMPLOYEE,
             password_hash=hash_password(payload.password),
         )
         self.user_repository.create(user)

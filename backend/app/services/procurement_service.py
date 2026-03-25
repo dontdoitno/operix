@@ -13,7 +13,7 @@ from app.repositories.purchase_order_repository import PurchaseOrderRepository
 from app.repositories.purchase_request_repository import PurchaseRequestRepository
 from app.repositories.user_repository import UserRepository
 from app.schemas.purchase_order import PurchaseOrderCreate, PurchaseOrderStatusUpdate
-from app.schemas.purchase_request import PurchaseRequestCreate, PurchaseRequestDecision
+from app.schemas.purchase_request import PurchaseRequestCreate, PurchaseRequestDecision, PurchaseRequestUpdate
 
 
 class ProcurementService:
@@ -42,6 +42,25 @@ class ProcurementService:
         self.db.refresh(purchase_request)
         return purchase_request
 
+    def list_requests_for_user(self, current_user: User) -> list[PurchaseRequest]:
+        if current_user.role == UserRole.MANAGER:
+            return self.request_repository.list_all()
+        if current_user.role == UserRole.EMPLOYEE:
+            return self.request_repository.list_by_requester(current_user.id)
+        raise PermissionDeniedError("Suppliers cannot access purchase requests.")
+
+    def get_request_for_user(self, current_user: User, request_id: str) -> PurchaseRequest:
+        purchase_request = self.request_repository.get_by_id(request_id)
+        if purchase_request is None:
+            raise NotFoundError("Purchase request was not found.")
+
+        if current_user.role == UserRole.MANAGER:
+            return purchase_request
+        if current_user.role == UserRole.EMPLOYEE and purchase_request.requester_id == current_user.id:
+            return purchase_request
+
+        raise PermissionDeniedError("You do not have access to this purchase request.")
+
     def list_employee_requests(self, employee: User) -> list[PurchaseRequest]:
         if employee.role != UserRole.EMPLOYEE:
             raise PermissionDeniedError("Only employees can view their own requests.")
@@ -51,6 +70,40 @@ class ProcurementService:
         if manager.role != UserRole.MANAGER:
             raise PermissionDeniedError("Only managers can review pending requests.")
         return self.request_repository.list_pending()
+
+    def update_purchase_request(
+        self,
+        employee: User,
+        request_id: str,
+        payload: PurchaseRequestUpdate,
+    ) -> PurchaseRequest:
+        if employee.role != UserRole.EMPLOYEE:
+            raise PermissionDeniedError("Only employees can edit purchase requests.")
+
+        purchase_request = self.request_repository.get_by_id(request_id)
+        if purchase_request is None:
+            raise NotFoundError("Purchase request was not found.")
+
+        if purchase_request.requester_id != employee.id:
+            raise PermissionDeniedError("Employees can edit only their own purchase requests.")
+
+        editable_statuses = {PurchaseRequestStatus.PENDING, PurchaseRequestStatus.REJECTED}
+        if purchase_request.status not in editable_statuses:
+            raise ConflictError("Only pending or rejected requests can be edited.")
+
+        purchase_request.title = payload.title
+        purchase_request.description = payload.description
+        purchase_request.amount = payload.amount
+        purchase_request.currency = payload.currency
+        purchase_request.status = PurchaseRequestStatus.PENDING
+        purchase_request.reviewer_id = None
+        purchase_request.rejection_reason = None
+        purchase_request.approved_at = None
+        purchase_request.updated_at = datetime.now(timezone.utc)
+
+        self.db.commit()
+        self.db.refresh(purchase_request)
+        return purchase_request
 
     def review_purchase_request(
         self,
@@ -122,7 +175,7 @@ class ProcurementService:
     def list_manager_orders(self, manager: User) -> list[PurchaseOrder]:
         if manager.role != UserRole.MANAGER:
             raise PermissionDeniedError("Only managers can view managed orders.")
-        return self.order_repository.list_by_manager(manager.id)
+        return self.order_repository.list_all()
 
     def list_supplier_orders(self, supplier: User) -> list[PurchaseOrder]:
         if supplier.role != UserRole.SUPPLIER:
@@ -133,6 +186,26 @@ class ProcurementService:
         if employee.role != UserRole.EMPLOYEE:
             raise PermissionDeniedError("Only employees can view their purchase orders.")
         return self.order_repository.list_by_requester(employee.id)
+
+    def get_order_for_user(self, current_user: User, order_id: str) -> PurchaseOrder:
+        purchase_order = self.order_repository.get_by_id(order_id)
+        if purchase_order is None:
+            raise NotFoundError("Purchase order was not found.")
+
+        if current_user.role == UserRole.MANAGER:
+            return purchase_order
+
+        if current_user.role == UserRole.SUPPLIER:
+            if purchase_order.supplier_id != current_user.id:
+                raise PermissionDeniedError("Suppliers can view only assigned orders.")
+            return purchase_order
+
+        if current_user.role == UserRole.EMPLOYEE:
+            if purchase_order.purchase_request.requester_id != current_user.id:
+                raise PermissionDeniedError("Employees can view only their own orders.")
+            return purchase_order
+
+        raise PermissionDeniedError("You do not have access to this purchase order.")
 
     def update_supplier_order_status(
         self,

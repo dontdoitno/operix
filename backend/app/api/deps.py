@@ -9,7 +9,6 @@ from app.db.session import get_db
 from app.models.enums import UserRole
 from app.models.user import User
 from app.repositories.auth_session_repository import AuthSessionRepository
-from app.repositories.user_repository import UserRepository
 
 
 DbSession = Annotated[Session, Depends(get_db)]
@@ -34,42 +33,25 @@ def extract_bearer_token(authorization: Optional[str]) -> Optional[str]:
 
 def get_current_user(
     db: DbSession,
-    x_user_id: Optional[str] = Header(default=None, alias="X-User-Id"),
     authorization: Optional[str] = Header(default=None, alias="Authorization"),
 ) -> User:
-    """Resolve authenticated user by bearer token or legacy X-User-Id header."""
+    """Resolve authenticated user strictly by Bearer token."""
     bearer_token = extract_bearer_token(authorization)
-    if authorization is not None and bearer_token is None:
+    if bearer_token is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Authorization header must use Bearer token format.",
+            detail="Authorization Bearer token is required.",
         )
 
-    if bearer_token is not None:
-        token_hash = hash_session_token(bearer_token)
-        auth_session = AuthSessionRepository(db).get_active_by_token_hash(token_hash)
-        if auth_session is None:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Authentication token is invalid or expired.",
-            )
-
-        return auth_session.user
-
-    if not x_user_id:
+    token_hash = hash_session_token(bearer_token)
+    auth_session = AuthSessionRepository(db).get_active_by_token_hash(token_hash)
+    if auth_session is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Authorization Bearer token or X-User-Id header is required.",
+            detail="Authentication token is invalid or expired.",
         )
 
-    user = UserRepository(db).get_by_id(x_user_id)
-    if user is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Authenticated user was not found.",
-        )
-
-    return user
+    return auth_session.user
 
 
 def require_roles(*allowed_roles: UserRole) -> Callable[..., User]:
